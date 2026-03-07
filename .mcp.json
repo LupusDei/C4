@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "adjutant": {
+      "type": "http",
+      "url": "http://localhost:4201/mcp",
+      "headers": {
+        "X-Agent-Id": "${ADJUTANT_AGENT_ID:-unknown}"
+      }
+    }
+  }
+}
