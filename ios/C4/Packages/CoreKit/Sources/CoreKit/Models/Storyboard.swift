@@ -11,17 +11,17 @@ public struct Storyboard: Codable, Identifiable, Equatable, Sendable {
     public let id: UUID
     public let projectId: UUID
     public var title: String
-    public var scriptText: String?
+    public var scriptText: String
     public var status: StoryboardStatus
     public var scenes: [Scene]?
     public let createdAt: Date
-    public let updatedAt: Date
+    public var updatedAt: Date
 
     public init(
         id: UUID = UUID(),
         projectId: UUID,
         title: String,
-        scriptText: String? = nil,
+        scriptText: String = "",
         status: StoryboardStatus = .draft,
         scenes: [Scene]? = nil,
         createdAt: Date = Date(),

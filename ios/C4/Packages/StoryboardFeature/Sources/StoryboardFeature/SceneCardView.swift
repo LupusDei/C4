@@ -1,115 +1,200 @@
+import ComposableArchitecture
 import CoreKit
 import SwiftUI
 
 struct SceneCardView: View {
-    let scene: Scene
-    let sceneNumber: Int
-    let onTap: () -> Void
+    let scene: CoreKit.Scene
+    let generationStatus: StoryboardReducer.SceneGenerationStatus
+    let progress: Double
+    let onRegenerate: () -> Void
+    let onVariations: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                // Header: scene number + duration badge
-                HStack {
-                    Text("#\(sceneNumber)")
-                        .font(.caption.bold())
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.accentColor)
-                        .clipShape(Capsule())
-
-                    Spacer()
-
-                    Text(String(format: "%.1fs", scene.durationSeconds))
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(.quaternary)
-                        .clipShape(Capsule())
-                }
-
-                // Generation status thumbnail
-                generationStatus
-                    .frame(height: 60)
-                    .frame(maxWidth: .infinity)
-                    .background(.quaternary)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-
-                // Narration text excerpt (2 lines)
-                if !scene.narrationText.isEmpty {
-                    Text(scene.narrationText)
-                        .font(.caption)
-                        .lineLimit(2)
-                        .foregroundStyle(.primary)
-                } else {
-                    Text("No narration")
-                        .font(.caption)
-                        .lineLimit(2)
-                        .foregroundStyle(.tertiary)
-                }
-
-                // Visual prompt (1 line, dimmed)
-                if !scene.visualPrompt.isEmpty {
-                    Text(scene.visualPrompt)
-                        .font(.caption2)
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(10)
-            .frame(width: 160)
-            .background(.background)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+        VStack(alignment: .leading, spacing: 8) {
+            headerRow
+            narrationSection
+            promptSection
+            durationRow
+            statusOverlay
         }
-        .buttonStyle(.plain)
+        .frame(width: 240)
+        .padding(12)
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(borderColor, lineWidth: 1.5)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+        .contextMenu {
+            Button {
+                onVariations()
+            } label: {
+                Label("Variations", systemImage: "square.grid.2x2")
+            }
+
+            Button {
+                onRegenerate()
+            } label: {
+                Label("Regenerate", systemImage: "arrow.clockwise")
+            }
+        }
     }
+
+    // MARK: - Header
+
+    private var headerRow: some View {
+        HStack {
+            Text("Scene \(scene.orderIndex + 1)")
+                .font(.headline)
+                .fontDesign(.rounded)
+
+            Spacer()
+
+            statusBadge
+        }
+    }
+
+    // MARK: - Status Badge
 
     @ViewBuilder
-    private var generationStatus: some View {
-        if let assetId = scene.assetId {
-            // Has generated asset - show thumbnail with green check
-            ZStack(alignment: .bottomTrailing) {
-                AsyncImage(
-                    url: URL(string: "http://localhost:3000/api/assets/\(assetId)/thumbnail")
-                ) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    case .failure:
-                        placeholderWithCheck
-                    case .empty:
-                        ProgressView()
-                    @unknown default:
-                        placeholderWithCheck
-                    }
-                }
+    private var statusBadge: some View {
+        switch generationStatus {
+        case .idle:
+            Image(systemName: "circle.dashed")
+                .foregroundStyle(.secondary)
+                .font(.caption)
 
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .padding(4)
-            }
-        } else {
-            // No asset - empty circle
-            Image(systemName: "circle")
-                .font(.title3)
-                .foregroundStyle(.tertiary)
+        case .generating:
+            ProgressView()
+                .controlSize(.mini)
+
+        case .complete:
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .font(.caption)
+
+        case .failed:
+            Image(systemName: "xmark.circle.fill")
+                .foregroundStyle(.red)
+                .font(.caption)
         }
     }
 
-    private var placeholderWithCheck: some View {
-        ZStack(alignment: .bottomTrailing) {
-            Image(systemName: "photo")
-                .foregroundStyle(.secondary)
-            Image(systemName: "checkmark.circle.fill")
+    // MARK: - Narration
+
+    private var narrationSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Narration")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .textCase(.uppercase)
+
+            Text(scene.narrationText)
                 .font(.caption)
-                .foregroundStyle(.green)
-                .padding(4)
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+        }
+    }
+
+    // MARK: - Visual Prompt
+
+    private var promptSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Visual")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .textCase(.uppercase)
+
+            Text(scene.visualPrompt)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .italic()
+        }
+    }
+
+    // MARK: - Duration
+
+    private var durationRow: some View {
+        HStack {
+            Label(
+                String(format: "%.1fs", scene.durationSeconds),
+                systemImage: "clock"
+            )
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+
+            Spacer()
+
+            if scene.assetId != nil {
+                thumbnailPreview
+            }
+        }
+    }
+
+    // MARK: - Thumbnail Preview
+
+    private var thumbnailPreview: some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(.quaternary)
+            .frame(width: 32, height: 18)
+            .overlay {
+                Image(systemName: "photo.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.secondary)
+            }
+    }
+
+    // MARK: - Status Overlay
+
+    @ViewBuilder
+    private var statusOverlay: some View {
+        switch generationStatus {
+        case .generating:
+            VStack(spacing: 4) {
+                ProgressView(value: progress, total: 100)
+                    .progressViewStyle(.linear)
+                    .tint(.accentColor)
+
+                Text("\(Int(progress))%")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+        case .failed(let error):
+            VStack(spacing: 6) {
+                Text(error)
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+                    .lineLimit(2)
+
+                Button {
+                    onRegenerate()
+                } label: {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                        .font(.caption2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.accentColor)
+                        .foregroundStyle(.white)
+                        .clipShape(Capsule())
+                }
+            }
+
+        default:
+            EmptyView()
+        }
+    }
+
+    // MARK: - Border Color
+
+    private var borderColor: Color {
+        switch generationStatus {
+        case .idle: .gray.opacity(0.3)
+        case .generating: .accentColor.opacity(0.5)
+        case .complete: .green.opacity(0.5)
+        case .failed: .red.opacity(0.5)
         }
     }
 }

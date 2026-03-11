@@ -1,7 +1,7 @@
 import Testing
 @testable import StoryboardFeature
 
-@Test func storyboardFeatureLoads() async throws {
-    // Placeholder test to validate module compiles
+@Test func storyboardFeatureImports() async throws {
+    // Verify module imports correctly
     #expect(true)
 }
