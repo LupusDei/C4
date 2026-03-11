@@ -10,6 +10,8 @@ public struct WebSocketMessage: Equatable, Sendable {
     public let status: String?
     public let assetId: UUID?
     public let error: String?
+    public let sceneId: UUID?
+    public let storyboardId: UUID?
 
     public init(
         event: String,
@@ -17,7 +19,9 @@ public struct WebSocketMessage: Equatable, Sendable {
         progress: Double? = nil,
         status: String? = nil,
         assetId: UUID? = nil,
-        error: String? = nil
+        error: String? = nil,
+        sceneId: UUID? = nil,
+        storyboardId: UUID? = nil
     ) {
         self.event = event
         self.jobId = jobId
@@ -25,6 +29,8 @@ public struct WebSocketMessage: Equatable, Sendable {
         self.status = status
         self.assetId = assetId
         self.error = error
+        self.sceneId = sceneId
+        self.storyboardId = storyboardId
     }
 
     /// Decode from backend's `{ event, data }` wire format.
@@ -39,7 +45,9 @@ public struct WebSocketMessage: Equatable, Sendable {
             progress: inner["progress"] as? Double,
             status: inner["status"] as? String,
             assetId: (inner["assetId"] as? String).flatMap(UUID.init(uuidString:)),
-            error: inner["error"] as? String
+            error: inner["error"] as? String,
+            sceneId: (inner["sceneId"] as? String).flatMap(UUID.init(uuidString:)),
+            storyboardId: (inner["storyboardId"] as? String).flatMap(UUID.init(uuidString:))
         )
     }
 
@@ -51,6 +59,7 @@ public struct WebSocketClient: Sendable {
     public var connect: @Sendable () async -> AsyncStream<WebSocketMessage>
     public var disconnect: @Sendable () async -> Void
     public var progressUpdates: @Sendable (_ jobId: UUID) async -> AsyncStream<WebSocketMessage>
+    public var storyboardUpdates: @Sendable (_ storyboardId: UUID) async -> AsyncStream<WebSocketMessage>
 }
 
 extension WebSocketClient: DependencyKey {
@@ -79,6 +88,20 @@ extension WebSocketClient: DependencyKey {
                     }
                     continuation.onTermination = { _ in task.cancel() }
                 }
+            },
+            storyboardUpdates: { storyboardId in
+                let stream = await connection.connect()
+                return AsyncStream { continuation in
+                    let task = Task {
+                        for await message in stream {
+                            if message.storyboardId == storyboardId {
+                                continuation.yield(message)
+                            }
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
             }
         )
     }
@@ -87,7 +110,8 @@ extension WebSocketClient: DependencyKey {
         WebSocketClient(
             connect: { AsyncStream { $0.finish() } },
             disconnect: {},
-            progressUpdates: { _ in AsyncStream { $0.finish() } }
+            progressUpdates: { _ in AsyncStream { $0.finish() } },
+            storyboardUpdates: { _ in AsyncStream { $0.finish() } }
         )
     }
 }
