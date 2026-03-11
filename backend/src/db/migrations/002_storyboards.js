@@ -5,6 +5,7 @@ export async function up(knex) {
     t.string('title', 255).notNullable();
     t.text('script_text');
     t.string('status', 20).defaultTo('draft').notNullable();
+    t.jsonb('metadata').defaultTo('{}');
     t.timestamp('created_at').defaultTo(knex.fn.now()).notNullable();
     t.timestamp('updated_at').defaultTo(knex.fn.now()).notNullable();
 
@@ -14,7 +15,7 @@ export async function up(knex) {
   await knex.raw(`
     ALTER TABLE storyboards
     ADD CONSTRAINT storyboards_status_check
-    CHECK (status IN ('draft', 'generating', 'complete', 'assembled'))
+    CHECK (status IN ('draft', 'generating', 'complete', 'assembled', 'failed'))
   `);
 
   await knex.schema.createTable('scenes', (t) => {
@@ -26,6 +27,7 @@ export async function up(knex) {
     t.decimal('duration_seconds', 6, 2).notNullable().defaultTo(5.0);
     t.uuid('asset_id').references('id').inTable('assets').onDelete('SET NULL');
     t.jsonb('variations').defaultTo('[]');
+    t.jsonb('metadata').defaultTo('{}');
     t.timestamp('created_at').defaultTo(knex.fn.now()).notNullable();
     t.timestamp('updated_at').defaultTo(knex.fn.now()).notNullable();
 

@@ -117,6 +117,43 @@ export async function transcribeToSRT(filePath) {
   return generateSRT(transcript);
 }
 
+/**
+ * Generate SRT captions from script scene data (no transcription needed).
+ * Computes cumulative start/end times from scene durations.
+ *
+ * @param {Array<{ narration_text: string, duration_seconds: number }>} scenes
+ * @returns {string} SRT formatted subtitles
+ */
+export function captionsFromScript(scenes) {
+  if (!scenes || scenes.length === 0) return '';
+
+  const segments = [];
+  let currentTime = 0;
+
+  for (const scene of scenes) {
+    const start = currentTime;
+    const end = currentTime + (scene.duration_seconds || 5);
+
+    if (scene.narration_text && scene.narration_text.trim()) {
+      segments.push({
+        start,
+        end,
+        text: scene.narration_text.trim(),
+      });
+    }
+
+    currentTime = end;
+  }
+
+  return segments
+    .map((seg, i) => {
+      const startTC = formatTimecode(seg.start);
+      const endTC = formatTimecode(seg.end);
+      return `${i + 1}\n${startTC} --> ${endTC}\n${seg.text}\n`;
+    })
+    .join('\n');
+}
+
 // --- Helpers ---
 
 function formatTimecode(seconds) {
