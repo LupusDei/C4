@@ -14,6 +14,8 @@ import noteRoutes from './routes/notes.js';
 import creditRoutes from './routes/credits.js';
 import assembleRoutes from './routes/assemble.js';
 import storyboardRoutes from './routes/storyboards.js';
+import styleRoutes from './routes/styles.js';
+import promptRoutes from './routes/prompts.js';
 import errorHandler from './plugins/errors.js';
 import { createGenerationWorker } from './workers/generation.js';
 
@@ -55,6 +57,8 @@ await fastify.register(noteRoutes);
 await fastify.register(creditRoutes);
 await fastify.register(assembleRoutes);
 await fastify.register(storyboardRoutes);
+await fastify.register(styleRoutes);
+await fastify.register(promptRoutes);
 
 // --- Health check ---
 fastify.get('/health', async () => ({ status: 'ok' }));

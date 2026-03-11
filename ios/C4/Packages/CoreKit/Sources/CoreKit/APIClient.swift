@@ -241,3 +241,76 @@ extension APIClient {
         )
     }
 }
+
+// MARK: - Style Presets
+
+public struct CreateStyleRequest: Codable, Sendable {
+    public let name: String
+    public let description: String?
+    public let promptModifier: String
+    public let category: String
+    public let thumbnailUrl: String?
+
+    public init(name: String, description: String? = nil, promptModifier: String, category: String, thumbnailUrl: String? = nil) {
+        self.name = name
+        self.description = description
+        self.promptModifier = promptModifier
+        self.category = category
+        self.thumbnailUrl = thumbnailUrl
+    }
+}
+
+public struct UpdateStyleRequest: Codable, Sendable {
+    public let name: String?
+    public let description: String?
+    public let promptModifier: String?
+    public let category: String?
+    public let thumbnailUrl: String?
+
+    public init(name: String? = nil, description: String? = nil, promptModifier: String? = nil, category: String? = nil, thumbnailUrl: String? = nil) {
+        self.name = name
+        self.description = description
+        self.promptModifier = promptModifier
+        self.category = category
+        self.thumbnailUrl = thumbnailUrl
+    }
+}
+
+extension APIClient {
+    public func fetchStylePresets(category: String? = nil) async throws -> [StylePreset] {
+        var path = "/api/styles"
+        if let category {
+            path += "?category=\(category)"
+        }
+        return try await get(path, as: [StylePreset].self)
+    }
+
+    public func fetchStylePreset(id: UUID) async throws -> StylePreset {
+        return try await get("/api/styles/\(id.uuidString)", as: StylePreset.self)
+    }
+
+    public func createCustomStyle(_ style: CreateStyleRequest) async throws -> StylePreset {
+        return try await post("/api/styles", body: style, as: StylePreset.self)
+    }
+
+    public func updateCustomStyle(id: UUID, _ style: UpdateStyleRequest) async throws -> StylePreset {
+        return try await put("/api/styles/\(id.uuidString)", body: style, as: StylePreset.self)
+    }
+
+    public func deleteCustomStyle(id: UUID) async throws {
+        _ = try await delete("/api/styles/\(id.uuidString)")
+    }
+
+    public func fetchPromptHistory(limit: Int = 20, offset: Int = 0, search: String? = nil) async throws -> [PromptHistory] {
+        var path = "/api/prompts/history?limit=\(limit)&offset=\(offset)"
+        if let search {
+            let encoded = search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? search
+            path += "&search=\(encoded)"
+        }
+        return try await get(path, as: [PromptHistory].self)
+    }
+
+    public func deletePromptHistory(id: UUID) async throws {
+        _ = try await delete("/api/prompts/history/\(id.uuidString)")
+    }
+}
