@@ -102,6 +102,10 @@ extension APIClient {
         return try encoder.encode(value)
     }
 
+    public func deleteAndDiscard(_ path: String) async throws {
+        _ = try await delete(path)
+    }
+
     private func decode<T: Decodable>(_ data: Data, as type: T.Type) throws -> T {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -111,5 +115,112 @@ extension APIClient {
         } catch {
             throw APIError.decodingError(error.localizedDescription)
         }
+    }
+}
+
+// MARK: - Storyboard API
+
+extension APIClient {
+    public func createStoryboard(projectId: UUID, title: String) async throws -> Storyboard {
+        struct Request: Codable, Sendable { let title: String }
+        return try await post(
+            "/api/projects/\(projectId)/storyboards",
+            body: Request(title: title),
+            as: Storyboard.self
+        )
+    }
+
+    public func fetchStoryboards(projectId: UUID) async throws -> [Storyboard] {
+        try await get("/api/projects/\(projectId)/storyboards", as: [Storyboard].self)
+    }
+
+    public func fetchStoryboard(id: UUID) async throws -> Storyboard {
+        try await get("/api/storyboards/\(id)", as: Storyboard.self)
+    }
+
+    public func updateStoryboard(id: UUID, title: String? = nil, status: String? = nil) async throws -> Storyboard {
+        struct Request: Codable, Sendable {
+            let title: String?
+            let status: String?
+        }
+        return try await put(
+            "/api/storyboards/\(id)",
+            body: Request(title: title, status: status),
+            as: Storyboard.self
+        )
+    }
+
+    public func deleteStoryboard(id: UUID) async throws {
+        _ = try await delete("/api/storyboards/\(id)")
+    }
+
+    public func createScene(
+        storyboardId: UUID,
+        narrationText: String,
+        visualPrompt: String,
+        durationSeconds: Double
+    ) async throws -> Scene {
+        struct Request: Codable, Sendable {
+            let narrationText: String
+            let visualPrompt: String
+            let durationSeconds: Double
+        }
+        return try await post(
+            "/api/storyboards/\(storyboardId)/scenes",
+            body: Request(
+                narrationText: narrationText,
+                visualPrompt: visualPrompt,
+                durationSeconds: durationSeconds
+            ),
+            as: Scene.self
+        )
+    }
+
+    public func fetchScenes(storyboardId: UUID) async throws -> [Scene] {
+        try await get("/api/storyboards/\(storyboardId)/scenes", as: [Scene].self)
+    }
+
+    public func updateScene(
+        id: UUID,
+        narrationText: String? = nil,
+        visualPrompt: String? = nil,
+        durationSeconds: Double? = nil
+    ) async throws -> Scene {
+        struct Request: Codable, Sendable {
+            let narrationText: String?
+            let visualPrompt: String?
+            let durationSeconds: Double?
+        }
+        return try await put(
+            "/api/scenes/\(id)",
+            body: Request(
+                narrationText: narrationText,
+                visualPrompt: visualPrompt,
+                durationSeconds: durationSeconds
+            ),
+            as: Scene.self
+        )
+    }
+
+    public func deleteScene(id: UUID) async throws {
+        _ = try await delete("/api/scenes/\(id)")
+    }
+
+    public func reorderScenes(storyboardId: UUID, order: [UUID]) async throws {
+        struct Request: Codable, Sendable { let order: [UUID] }
+        _ = try await put(
+            "/api/storyboards/\(storyboardId)/scenes/reorder",
+            body: Request(order: order),
+            as: [Scene].self
+        )
+    }
+
+    public func splitScript(storyboardId: UUID, scriptText: String) async throws -> [Scene] {
+        struct Request: Codable, Sendable { let scriptText: String }
+        return try await post(
+            "/api/storyboards/\(storyboardId)/split-script",
+            body: Request(scriptText: scriptText),
+            as: [Scene].self
+        )
     }
 }
