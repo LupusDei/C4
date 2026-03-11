@@ -60,14 +60,14 @@ export function createGenerationWorker({ db, wsBroadcast, storagePath }) {
 // --- Image generation handler ---
 
 async function handleImageGeneration(job, { db, wsBroadcast, storagePath }) {
-  const { jobId, assetId, projectId, prompt, provider, qualityTier, aspectRatio } = job.data;
+  const { jobId, assetId, projectId, prompt, provider, qualityTier, aspectRatio, sceneId, storyboardId, variationIndex } = job.data;
 
-  broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 10, status: 'generating' });
+  broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 10, status: 'generating', storyboardId, sceneId });
 
   try {
     const result = await generateImage({ prompt, provider, qualityTier, aspectRatio });
 
-    broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 80, status: 'saving' });
+    broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 80, status: 'saving', storyboardId, sceneId });
 
     // Save to storage
     const ext = result.contentType === 'image/png' ? '.png' : '.jpg';
@@ -86,12 +86,17 @@ async function handleImageGeneration(job, { db, wsBroadcast, storagePath }) {
 
     await deductCredits(db, assetId);
 
-    broadcast(wsBroadcast, jobId, 'generation:complete', { assetId, filePath });
+    // Link asset to storyboard scene if applicable
+    if (sceneId) {
+      await linkAssetToScene(db, sceneId, assetId, variationIndex);
+    }
+
+    broadcast(wsBroadcast, jobId, 'generation:complete', { assetId, filePath, storyboardId, sceneId });
     return { assetId, filePath };
   } catch (err) {
     await markFailed(db, assetId, err.message);
     await refundCredits(db, assetId);
-    broadcast(wsBroadcast, jobId, 'generation:error', { error: err.message });
+    broadcast(wsBroadcast, jobId, 'generation:error', { error: err.message, storyboardId, sceneId });
     throw err;
   }
 }
@@ -99,22 +104,22 @@ async function handleImageGeneration(job, { db, wsBroadcast, storagePath }) {
 // --- Video generation handler ---
 
 async function handleVideoGeneration(job, { db, wsBroadcast, storagePath }) {
-  const { jobId, assetId, projectId, prompt, provider, qualityTier, duration, aspectRatio, resolution, imageUrl } = job.data;
+  const { jobId, assetId, projectId, prompt, provider, qualityTier, duration, aspectRatio, resolution, imageUrl, sceneId, storyboardId, variationIndex } = job.data;
 
-  broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 5, status: 'dispatching' });
+  broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 5, status: 'dispatching', storyboardId, sceneId });
 
   try {
     const { poll, metadata } = await generateVideo({
       prompt, provider, qualityTier, duration, aspectRatio, resolution, imageUrl,
     });
 
-    broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 15, status: 'generating' });
+    broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 15, status: 'generating', storyboardId, sceneId });
 
     const result = await poll((progress) => {
-      broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 15 + Math.round(progress * 0.65), status: 'generating' });
+      broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 15 + Math.round(progress * 0.65), status: 'generating', storyboardId, sceneId });
     });
 
-    broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 85, status: 'saving' });
+    broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 85, status: 'saving', storyboardId, sceneId });
 
     // Save video to storage
     const assetDir = join(storagePath, 'assets', projectId, assetId);
@@ -136,12 +141,17 @@ async function handleVideoGeneration(job, { db, wsBroadcast, storagePath }) {
 
     await deductCredits(db, assetId);
 
-    broadcast(wsBroadcast, jobId, 'generation:complete', { assetId, filePath: videoPath });
+    // Link asset to storyboard scene if applicable
+    if (sceneId) {
+      await linkAssetToScene(db, sceneId, assetId, variationIndex);
+    }
+
+    broadcast(wsBroadcast, jobId, 'generation:complete', { assetId, filePath: videoPath, storyboardId, sceneId });
     return { assetId, filePath: videoPath };
   } catch (err) {
     await markFailed(db, assetId, err.message);
     await refundCredits(db, assetId);
-    broadcast(wsBroadcast, jobId, 'generation:error', { error: err.message });
+    broadcast(wsBroadcast, jobId, 'generation:error', { error: err.message, storyboardId, sceneId });
     throw err;
   }
 }
@@ -199,15 +209,15 @@ async function handleVideoExtension(job, { db, wsBroadcast, storagePath }) {
 // --- Assembly handler ---
 
 async function handleAssembly(job, { db, wsBroadcast, storagePath }) {
-  const { jobId, assetId, projectId, clips, aspectRatio, enableCaptions, transition } = job.data;
+  const { jobId, assetId, projectId, clips, aspectRatio, enableCaptions, transition, srtContent: preGeneratedSrt, storyboardId } = job.data;
 
-  broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 5, status: 'preparing' });
+  broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 5, status: 'preparing', storyboardId });
 
   try {
-    // Optionally generate captions from the first clip with audio
-    let srtContent = null;
-    if (enableCaptions && clips.length > 0) {
-      broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 10, status: 'transcribing' });
+    // Use pre-generated SRT (from storyboard script) or transcribe from audio
+    let srtContent = preGeneratedSrt || null;
+    if (!srtContent && enableCaptions && clips.length > 0) {
+      broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 10, status: 'transcribing', storyboardId });
       // Transcribe each clip and concatenate SRT
       // For simplicity, transcribe the first clip (multi-clip SRT merging is complex)
       try {
@@ -218,7 +228,7 @@ async function handleAssembly(job, { db, wsBroadcast, storagePath }) {
       }
     }
 
-    broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 30, status: 'assembling' });
+    broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 30, status: 'assembling', storyboardId });
 
     const result = await assembleVideo({
       clips,
@@ -227,7 +237,7 @@ async function handleAssembly(job, { db, wsBroadcast, storagePath }) {
       srtContent,
     });
 
-    broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 85, status: 'saving' });
+    broadcast(wsBroadcast, jobId, 'generation:progress', { progress: 85, status: 'saving', storyboardId });
 
     // Save assembled video
     const assetDir = join(storagePath, 'assets', projectId, assetId);
@@ -249,12 +259,20 @@ async function handleAssembly(job, { db, wsBroadcast, storagePath }) {
 
     await deductCredits(db, assetId);
 
-    broadcast(wsBroadcast, jobId, 'generation:complete', { assetId, filePath: videoPath });
+    // Update storyboard status if this is a storyboard assembly
+    if (storyboardId) {
+      await db('storyboards').where({ id: storyboardId }).update({
+        status: 'assembled',
+        updated_at: new Date(),
+      });
+    }
+
+    broadcast(wsBroadcast, jobId, 'generation:complete', { assetId, filePath: videoPath, storyboardId });
     return { assetId, filePath: videoPath };
   } catch (err) {
     await markFailed(db, assetId, err.message);
     await refundCredits(db, assetId);
-    broadcast(wsBroadcast, jobId, 'generation:error', { error: err.message });
+    broadcast(wsBroadcast, jobId, 'generation:error', { error: err.message, storyboardId });
     throw err;
   }
 }
@@ -262,7 +280,35 @@ async function handleAssembly(job, { db, wsBroadcast, storagePath }) {
 // --- Shared helpers ---
 
 function broadcast(wsBroadcast, jobId, event, data) {
-  wsBroadcast(event, { jobId, ...data });
+  // Strip undefined fields so non-storyboard jobs don't get null storyboardId/sceneId
+  const payload = { jobId };
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      payload[key] = value;
+    }
+  }
+  wsBroadcast(event, payload);
+}
+
+/**
+ * Link a generated asset to a storyboard scene.
+ * If variationIndex is defined, appends to the scene's variations JSONB array.
+ * Otherwise, sets the scene's primary asset_id.
+ */
+async function linkAssetToScene(db, sceneId, assetId, variationIndex) {
+  if (variationIndex !== undefined && variationIndex !== null) {
+    // Append to variations JSONB array
+    await db('scenes').where({ id: sceneId }).update({
+      variations: db.raw(`COALESCE(variations, '[]'::jsonb) || ?::jsonb`, [JSON.stringify([assetId])]),
+      updated_at: new Date(),
+    });
+  } else {
+    // Set primary asset
+    await db('scenes').where({ id: sceneId }).update({
+      asset_id: assetId,
+      updated_at: new Date(),
+    });
+  }
 }
 
 async function deductCredits(db, assetId) {
