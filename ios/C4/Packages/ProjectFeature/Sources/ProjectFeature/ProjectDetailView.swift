@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import CoreKit
+import PromptFeature
 import StoryboardFeature
 import SwiftUI
 
@@ -13,6 +14,7 @@ public struct ProjectDetailView: View {
     public var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                defaultStyleSection
                 storyboardsSection
                 assetGridSection
                 notesSection
@@ -21,6 +23,56 @@ public struct ProjectDetailView: View {
         }
         .navigationTitle(store.project.title)
         .onAppear { store.send(.onAppear) }
+        .sheet(isPresented: Binding(
+            get: { store.stylePicker != nil },
+            set: { if !$0 { store.send(.dismissStylePicker) } }
+        )) {
+            if let pickerStore = store.scope(state: \.stylePicker, action: \.stylePicker.presented) {
+                StylePickerView(store: pickerStore)
+            }
+        }
+    }
+
+    // MARK: - Default Style
+
+    private var defaultStyleSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Default Style")
+                .font(.title3.bold())
+
+            Button {
+                store.send(.styleButtonTapped)
+            } label: {
+                HStack {
+                    Image(systemName: "paintpalette.fill")
+                        .foregroundStyle(store.defaultStyle != nil ? Color.accentColor : .secondary)
+
+                    if let style = store.defaultStyle {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(style.name)
+                                .font(.subheadline.weight(.medium))
+                            Text(StylePickerReducer.categoryDisplayName(style.category))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text("None")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding()
+                .background(.quaternary)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: - Storyboards

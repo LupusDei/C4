@@ -1,3 +1,6 @@
+import Anthropic from '@anthropic-ai/sdk';
+import config from '../config.js';
+
 const uuidFormat = { type: 'string', format: 'uuid' };
 
 const stylePresetSchema = {
@@ -20,6 +23,18 @@ const stylePresetListSchema = {
   type: 'array',
   items: stylePresetSchema,
 };
+
+const extractedStyleSchema = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    description: { type: 'string' },
+    promptModifier: { type: 'string' },
+    category: { type: 'string' },
+  },
+};
+
+const VALID_CATEGORIES = ['cinematic', 'photography', 'illustration', 'digital-art', 'retro', 'abstract'];
 
 export default async function styleRoutes(fastify) {
   // --- List style presets ---
@@ -189,9 +204,85 @@ export default async function styleRoutes(fastify) {
         return reply.code(403).send({ error: 'forbidden', message: 'Cannot delete system style presets' });
       }
 
+      // Clear any projects referencing this preset
+      await fastify.db('projects')
+        .where({ default_style_preset_id: id })
+        .update({ default_style_preset_id: null });
+
       await fastify.db('style_presets').where({ id }).del();
 
       return { message: 'Style preset deleted' };
+    },
+  });
+
+  // --- Extract style from prompt (T018) ---
+  fastify.post('/api/styles/extract', {
+    schema: {
+      description: 'Extract visual style elements from a prompt using Claude',
+      tags: ['styles'],
+      body: {
+        type: 'object',
+        required: ['prompt'],
+        properties: {
+          prompt: { type: 'string', minLength: 1, maxLength: 4000 },
+        },
+      },
+      response: { 200: extractedStyleSchema },
+    },
+    handler: async (request, reply) => {
+      const { prompt } = request.body;
+
+      if (!config.ai.anthropicApiKey) {
+        return reply.code(503).send({
+          error: 'service_unavailable',
+          message: 'Anthropic API key not configured',
+        });
+      }
+
+      const anthropic = new Anthropic({ apiKey: config.ai.anthropicApiKey });
+
+      const systemPrompt = `Extract the visual style elements from this image generation prompt. Separate the style (lighting, composition, color, mood, texture, technique) from the subject matter. Return a JSON object with: name (short style name, 2-4 words), description (one sentence describing the style), promptModifier (just the style elements that can be applied to any subject), category (one of: cinematic, photography, illustration, digital-art, retro, abstract).`;
+
+      try {
+        const message = await anthropic.messages.create({
+          model: 'claude-3-5-haiku-latest',
+          max_tokens: 512,
+          system: systemPrompt,
+          messages: [
+            { role: 'user', content: prompt },
+          ],
+        });
+
+        const text = message.content[0]?.text || '';
+        // Extract JSON from the response (handle potential markdown code blocks)
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          return reply.code(500).send({
+            error: 'extraction_failed',
+            message: 'Failed to extract style from prompt',
+          });
+        }
+
+        const extracted = JSON.parse(jsonMatch[0]);
+
+        // Validate category
+        if (!VALID_CATEGORIES.includes(extracted.category)) {
+          extracted.category = 'abstract';
+        }
+
+        return {
+          name: extracted.name || 'Custom Style',
+          description: extracted.description || '',
+          promptModifier: extracted.promptModifier || '',
+          category: extracted.category,
+        };
+      } catch (err) {
+        fastify.log.error({ err }, 'Style extraction failed');
+        return reply.code(500).send({
+          error: 'extraction_failed',
+          message: 'Failed to extract style from prompt',
+        });
+      }
     },
   });
 }

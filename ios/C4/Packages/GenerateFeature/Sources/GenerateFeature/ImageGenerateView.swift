@@ -14,6 +14,7 @@ public struct ImageGenerateView: View {
         ScrollView {
             VStack(spacing: 20) {
                 promptSection
+                styleSection
                 settingsSection
                 costSection
                 generateButton
@@ -22,6 +23,14 @@ public struct ImageGenerateView: View {
             .padding()
         }
         .navigationTitle("Generate Image")
+        .sheet(isPresented: Binding(
+            get: { store.stylePicker != nil },
+            set: { if !$0 { store.send(.dismissStylePicker) } }
+        )) {
+            if let pickerStore = store.scope(state: \.stylePicker, action: \.stylePicker.presented) {
+                StylePickerView(store: pickerStore)
+            }
+        }
     }
 
     // MARK: - Prompt
@@ -30,6 +39,49 @@ public struct ImageGenerateView: View {
         PromptEnhancerView(
             store: store.scope(state: \.promptEnhancer, action: \.promptEnhancer)
         )
+    }
+
+    // MARK: - Style
+
+    private var styleSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Style")
+                .font(.headline)
+
+            Button {
+                store.send(.styleButtonTapped)
+            } label: {
+                HStack {
+                    if let style = store.selectedStyle {
+                        Image(systemName: "paintpalette.fill")
+                            .foregroundStyle(Color.accentColor)
+                        Text(style.name)
+                            .font(.subheadline.weight(.medium))
+                        Spacer()
+                        Button {
+                            store.send(.setDefaultStyle(nil))
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Image(systemName: "paintpalette")
+                            .foregroundStyle(.secondary)
+                        Text("Choose a style...")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .padding()
+                .background(.quaternary)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: - Settings

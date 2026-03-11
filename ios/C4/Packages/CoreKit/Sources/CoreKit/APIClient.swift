@@ -301,6 +301,11 @@ extension APIClient {
         _ = try await delete("/api/styles/\(id.uuidString)")
     }
 
+    public func extractStyle(prompt: String) async throws -> ExtractedStyle {
+        struct Request: Codable, Sendable { let prompt: String }
+        return try await post("/api/styles/extract", body: Request(prompt: prompt), as: ExtractedStyle.self)
+    }
+
     public func fetchPromptHistory(limit: Int = 20, offset: Int = 0, search: String? = nil) async throws -> [PromptHistory] {
         var path = "/api/prompts/history?limit=\(limit)&offset=\(offset)"
         if let search {

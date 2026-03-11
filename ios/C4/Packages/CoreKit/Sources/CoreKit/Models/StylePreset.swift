@@ -33,3 +33,22 @@ public struct StylePreset: Codable, Identifiable, Equatable, Sendable {
         self.updatedAt = updatedAt
     }
 }
+
+public struct ExtractedStyle: Codable, Equatable, Sendable {
+    public var name: String
+    public var description: String
+    public var promptModifier: String
+    public var category: String
+
+    public init(
+        name: String,
+        description: String,
+        promptModifier: String,
+        category: String
+    ) {
+        self.name = name
+        self.description = description
+        self.promptModifier = promptModifier
+        self.category = category
+    }
+}

@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import CoreKit
 import Foundation
+import PromptFeature
 
 // MARK: - Project List Reducer
 
@@ -160,6 +161,9 @@ public struct ProjectDetailReducer: Sendable {
         public var editingNoteId: UUID?
         public var editingNoteContent: String = ""
         public var error: String?
+        public var defaultStyle: StylePreset?
+        public var showStylePicker: Bool = false
+        @Presents public var stylePicker: StylePickerReducer.State?
 
         public init(project: Project) {
             self.project = project
@@ -184,6 +188,11 @@ public struct ProjectDetailReducer: Sendable {
         case cancelEditingNote
         case deleteNote(UUID)
         case noteDeleted(Result<UUID, Error>)
+        case styleButtonTapped
+        case dismissStylePicker
+        case stylePicker(PresentationAction<StylePickerReducer.Action>)
+        case defaultStyleLoaded(Result<StylePreset, Error>)
+        case projectStyleUpdated(Result<Project, Error>)
     }
 
     @Dependency(\.apiClient) var apiClient
@@ -194,9 +203,18 @@ public struct ProjectDetailReducer: Sendable {
         Reduce { state, action in
             switch action {
             case .onAppear:
+                let styleId = state.project.defaultStylePresetId
                 return .merge(
                     .send(.loadAssets),
-                    .send(.loadNotes)
+                    .send(.loadNotes),
+                    styleId.map { id in
+                        .run { send in
+                            let result = await Result {
+                                try await apiClient.get("/api/styles/\(id)", as: StylePreset.self)
+                            }
+                            await send(.defaultStyleLoaded(result))
+                        }
+                    } ?? .none
                 )
 
             case .loadAssets:
@@ -355,7 +373,54 @@ public struct ProjectDetailReducer: Sendable {
             case .noteDeleted(.failure(let error)):
                 state.error = error.localizedDescription
                 return .none
+
+            case .styleButtonTapped:
+                state.stylePicker = StylePickerReducer.State(selectedPreset: state.defaultStyle)
+                return .none
+
+            case .dismissStylePicker:
+                state.stylePicker = nil
+                return .none
+
+            case .stylePicker(.presented(.presetSelected(let preset))):
+                state.defaultStyle = preset
+                let projectId = state.project.id
+                let presetId = preset?.id
+
+                return .run { send in
+                    let result = await Result {
+                        try await apiClient.put(
+                            "/api/projects/\(projectId)",
+                            body: UpdateProjectStyleRequest(defaultStylePresetId: presetId),
+                            as: Project.self
+                        )
+                    }
+                    await send(.projectStyleUpdated(result))
+                }
+
+            case .stylePicker:
+                return .none
+
+            case .defaultStyleLoaded(.success(let style)):
+                state.defaultStyle = style
+                return .none
+
+            case .defaultStyleLoaded(.failure):
+                // Style might have been deleted; clear the reference
+                state.defaultStyle = nil
+                return .none
+
+            case .projectStyleUpdated(.success(let project)):
+                state.project = project
+                return .none
+
+            case .projectStyleUpdated(.failure(let error)):
+                state.error = error.localizedDescription
+                return .none
             }
+        }
+        .ifLet(\.$stylePicker, action: \.stylePicker) {
+            StylePickerReducer()
         }
     }
 }
@@ -373,4 +438,8 @@ struct CreateNoteRequest: Codable, Sendable {
 
 struct UpdateNoteRequest: Codable, Sendable {
     let content: String
+}
+
+struct UpdateProjectStyleRequest: Codable, Sendable {
+    let defaultStylePresetId: UUID?
 }

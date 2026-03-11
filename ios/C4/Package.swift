@@ -7,6 +7,7 @@ let package = Package(
     platforms: [.iOS(.v18), .macOS(.v14)],
     products: [
         .library(name: "CoreKit", targets: ["CoreKit"]),
+        .library(name: "PromptFeature", targets: ["PromptFeature"]),
         .library(name: "ProjectFeature", targets: ["ProjectFeature"]),
         .library(name: "GenerateFeature", targets: ["GenerateFeature"]),
         .library(name: "AssemblyFeature", targets: ["AssemblyFeature"]),
@@ -30,10 +31,24 @@ let package = Package(
             path: "Packages/CoreKit/Tests/CoreKitTests"
         ),
         .target(
+            name: "PromptFeature",
+            dependencies: [
+                "CoreKit",
+                .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
+            ],
+            path: "Packages/PromptFeature/Sources/PromptFeature"
+        ),
+        .testTarget(
+            name: "PromptFeatureTests",
+            dependencies: ["PromptFeature"],
+            path: "Packages/PromptFeature/Tests/PromptFeatureTests"
+        ),
+        .target(
             name: "ProjectFeature",
             dependencies: [
                 "CoreKit",
                 "GenerateFeature",
+                "PromptFeature",
                 "StoryboardFeature",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
@@ -48,6 +63,7 @@ let package = Package(
             name: "GenerateFeature",
             dependencies: [
                 "CoreKit",
+                "PromptFeature",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             path: "Packages/GenerateFeature/Sources/GenerateFeature"

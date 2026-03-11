@@ -14,6 +14,9 @@ public struct ImageGenerateReducer: Sendable {
         public var selectedProjectId: UUID?
         public var aspectRatio: AspectRatio = .square
         public var generationStatus: GenerationStatus = .idle
+        public var selectedStyle: StylePreset?
+        public var showStylePicker: Bool = false
+        @Presents public var stylePicker: StylePickerReducer.State?
 
         public init() {}
 
@@ -97,6 +100,10 @@ public struct ImageGenerateReducer: Sendable {
         case assetLoaded(Result<Asset, Error>)
         case reset
         case promptEnhancer(PromptEnhancerReducer.Action)
+        case styleButtonTapped
+        case dismissStylePicker
+        case stylePicker(PresentationAction<StylePickerReducer.Action>)
+        case setDefaultStyle(StylePreset?)
     }
 
     @Dependency(\.apiClient) var apiClient
@@ -146,10 +153,14 @@ public struct ImageGenerateReducer: Sendable {
                 guard state.canGenerate, let projectId = state.selectedProjectId else { return .none }
                 state.generationStatus = .generating
 
-                let effectivePrompt = state.promptEnhancer.effectivePrompt
+                // Use enhanced prompt if available, then append style modifier
+                var fullPrompt = state.promptEnhancer.effectivePrompt
+                if let style = state.selectedStyle {
+                    fullPrompt = "\(fullPrompt), \(style.promptModifier)"
+                }
 
                 let request = ImageGenerateRequest(
-                    prompt: effectivePrompt,
+                    prompt: fullPrompt,
                     provider: state.selectedProvider == .auto ? nil : state.selectedProvider.rawValue,
                     qualityTier: state.qualityTier.rawValue,
                     projectId: projectId,
@@ -222,7 +233,29 @@ public struct ImageGenerateReducer: Sendable {
                     .cancel(id: CancelID.generation),
                     .cancel(id: CancelID.progress)
                 )
+
+            case .styleButtonTapped:
+                state.stylePicker = StylePickerReducer.State(selectedPreset: state.selectedStyle)
+                return .none
+
+            case .dismissStylePicker:
+                state.stylePicker = nil
+                return .none
+
+            case .stylePicker(.presented(.presetSelected(let preset))):
+                state.selectedStyle = preset
+                return .none
+
+            case .stylePicker:
+                return .none
+
+            case .setDefaultStyle(let preset):
+                state.selectedStyle = preset
+                return .none
             }
+        }
+        .ifLet(\.$stylePicker, action: \.stylePicker) {
+            StylePickerReducer()
         }
     }
 }
