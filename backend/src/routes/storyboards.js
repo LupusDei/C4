@@ -429,9 +429,25 @@ export default async function storyboardRoutes(fastify) {
     handler: async (request, reply) => {
       const { id } = request.params;
 
-      const deleted = await fastify.db('scenes').where({ id }).del();
-      if (!deleted) {
+      // Find the scene to get its storyboard_id before deleting
+      const scene = await fastify.db('scenes').where({ id }).first();
+      if (!scene) {
         return reply.code(404).send({ error: 'not_found', message: 'Scene not found' });
+      }
+
+      await fastify.db('scenes').where({ id }).del();
+
+      // Renumber remaining scenes to close order_index gaps
+      const remaining = await fastify.db('scenes')
+        .where({ storyboard_id: scene.storyboard_id })
+        .orderBy('order_index', 'asc');
+
+      for (let i = 0; i < remaining.length; i++) {
+        if (remaining[i].order_index !== i) {
+          await fastify.db('scenes')
+            .where({ id: remaining[i].id })
+            .update({ order_index: i, updated_at: fastify.db.fn.now() });
+        }
       }
 
       return { message: 'Scene deleted' };
@@ -522,6 +538,15 @@ export default async function storyboardRoutes(fastify) {
       const { id } = request.params;
       const { script_text } = request.body;
 
+      // Validate minimum script length
+      const wordCount = script_text.trim().split(/\s+/).filter(w => w.length > 0).length;
+      if (wordCount < 10) {
+        return reply.code(400).send({
+          error: 'script_too_short',
+          message: 'Script too short — minimum 10 words required',
+        });
+      }
+
       const storyboard = await fastify.db('storyboards').where({ id }).first();
       if (!storyboard) {
         return reply.code(404).send({ error: 'not_found', message: 'Storyboard not found' });
@@ -551,27 +576,29 @@ export default async function storyboardRoutes(fastify) {
         });
       }
 
-      // Delete existing scenes for this storyboard before inserting new ones
-      await fastify.db('scenes').where({ storyboard_id: id }).del();
+      // Delete existing scenes and insert new ones in a transaction
+      const { scenes, updatedStoryboard } = await fastify.db.transaction(async (trx) => {
+        await trx('scenes').where({ storyboard_id: id }).del();
 
-      // Insert new scenes
-      const sceneRecords = sceneData.map((scene, index) => ({
-        storyboard_id: id,
-        order_index: index,
-        narration_text: scene.narration_text || '',
-        visual_prompt: scene.visual_prompt || '',
-        duration_seconds: scene.duration_seconds ?? 5.0,
-      }));
+        const sceneRecords = sceneData.map((scene, index) => ({
+          storyboard_id: id,
+          order_index: index,
+          narration_text: scene.narration_text || '',
+          visual_prompt: scene.visual_prompt || '',
+          duration_seconds: scene.duration_seconds ?? 5.0,
+        }));
 
-      const scenes = await fastify.db('scenes')
-        .insert(sceneRecords)
-        .returning('*');
+        const insertedScenes = await trx('scenes')
+          .insert(sceneRecords)
+          .returning('*');
 
-      // Update storyboard status to complete
-      const [updatedStoryboard] = await fastify.db('storyboards')
-        .where({ id })
-        .update({ status: 'complete', updated_at: fastify.db.fn.now() })
-        .returning('*');
+        const [storyboardResult] = await trx('storyboards')
+          .where({ id })
+          .update({ status: 'complete', updated_at: trx.fn.now() })
+          .returning('*');
+
+        return { scenes: insertedScenes, updatedStoryboard: storyboardResult };
+      });
 
       // Sort scenes by order_index since returning('*') may not preserve order
       scenes.sort((a, b) => a.order_index - b.order_index);
@@ -683,6 +710,56 @@ export default async function storyboardRoutes(fastify) {
       });
 
       return reply.code(202).send({ jobs, totalCost });
+    },
+  });
+
+  // --- Estimate generation cost ---
+  fastify.get('/api/storyboards/:id/generate/estimate', {
+    schema: {
+      description: 'Estimate credit cost for batch-generating assets',
+      tags: ['storyboards'],
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: { id: uuidFormat },
+      },
+      querystring: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['image', 'video'], default: 'image' },
+          provider: { type: 'string' },
+          quality: { type: 'string', enum: ['budget', 'standard', 'premium'], default: 'standard' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            scenesCount: { type: 'integer' },
+            costPerScene: { type: 'integer' },
+            totalCost: { type: 'integer' },
+          },
+        },
+      },
+    },
+    handler: async (request, reply) => {
+      const { id: storyboardId } = request.params;
+      const { type = 'image', provider, quality = 'standard' } = request.query;
+
+      const storyboard = await fastify.db('storyboards').where({ id: storyboardId }).first();
+      if (!storyboard) {
+        return reply.code(404).send({ error: 'not_found', message: 'Storyboard not found' });
+      }
+
+      const scenes = await fastify.db('scenes')
+        .where({ storyboard_id: storyboardId })
+        .whereNull('asset_id');
+
+      const scenesCount = scenes.length;
+      const costPerScene = getCreditCost(type, provider, quality);
+      const totalCost = costPerScene * scenesCount;
+
+      return { scenesCount, costPerScene, totalCost };
     },
   });
 

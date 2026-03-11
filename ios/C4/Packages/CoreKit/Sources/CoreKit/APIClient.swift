@@ -5,6 +5,7 @@ public struct APIClient: Sendable {
     public var get: @Sendable (_ path: String) async throws -> Data
     public var post: @Sendable (_ path: String, _ body: Data?) async throws -> Data
     public var put: @Sendable (_ path: String, _ body: Data?) async throws -> Data
+    public var patch: @Sendable (_ path: String, _ body: Data?) async throws -> Data
     public var delete: @Sendable (_ path: String) async throws -> Data
 }
 
@@ -48,6 +49,7 @@ extension APIClient: DependencyKey {
             get: { path in try await performRequest("GET", path, nil) },
             post: { path, body in try await performRequest("POST", path, body) },
             put: { path, body in try await performRequest("PUT", path, body) },
+            patch: { path, body in try await performRequest("PATCH", path, body) },
             delete: { path in try await performRequest("DELETE", path, nil) }
         )
     }
@@ -57,6 +59,7 @@ extension APIClient: DependencyKey {
             get: { _ in Data() },
             post: { _, _ in Data() },
             put: { _, _ in Data() },
+            patch: { _, _ in Data() },
             delete: { _ in Data() }
         )
     }
@@ -92,6 +95,15 @@ extension APIClient {
         as type: T.Type
     ) async throws -> T {
         let data = try await put(path, encode(body))
+        return try decode(data, as: type)
+    }
+
+    public func patch<T: Decodable & Sendable, U: Encodable & Sendable>(
+        _ path: String,
+        body: U,
+        as type: T.Type
+    ) async throws -> T {
+        let data = try await patch(path, encode(body))
         return try decode(data, as: type)
     }
 
@@ -208,19 +220,24 @@ extension APIClient {
 
     public func reorderScenes(storyboardId: UUID, order: [UUID]) async throws {
         struct Request: Codable, Sendable { let order: [UUID] }
-        _ = try await put(
+        _ = try await patch(
             "/api/storyboards/\(storyboardId)/scenes/reorder",
             body: Request(order: order),
             as: [Scene].self
         )
     }
 
-    public func splitScript(storyboardId: UUID, scriptText: String) async throws -> [Scene] {
+    public struct SplitScriptResponse: Codable, Sendable {
+        public let storyboard: Storyboard
+        public let scenes: [Scene]
+    }
+
+    public func splitScript(storyboardId: UUID, scriptText: String) async throws -> SplitScriptResponse {
         struct Request: Codable, Sendable { let scriptText: String }
         return try await post(
-            "/api/storyboards/\(storyboardId)/split-script",
+            "/api/storyboards/\(storyboardId)/split",
             body: Request(scriptText: scriptText),
-            as: [Scene].self
+            as: SplitScriptResponse.self
         )
     }
 }

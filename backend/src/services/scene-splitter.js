@@ -21,6 +21,7 @@ Rules:
 - Each scene should be a self-contained visual moment.
 - Visual prompts should be detailed enough for an AI image generator to produce a relevant image.
 - Duration should reflect the amount of narration/action in the scene.
+- Maximum 20 scenes.
 - Return valid JSON only — no markdown, no explanation, no code fences.
 
 Return a JSON array of objects with exactly these keys: narration_text, visual_prompt, duration_seconds.
@@ -58,8 +59,26 @@ export async function splitScript(scriptText) {
 /**
  * Split script using OpenAI chat completions with structured output.
  */
+/**
+ * Sanitize user script text to prevent prompt injection.
+ * Strips patterns that look like system prompt overrides.
+ */
+function sanitizeScriptText(text) {
+  return text
+    .replace(/\[system\]/gi, '[filtered]')
+    .replace(/\[INST\]/gi, '[filtered]')
+    .replace(/<<SYS>>.*?<<\/SYS>>/gs, '')
+    .replace(/system\s*:\s*/gi, '')
+    .replace(/you are now/gi, 'the character is now')
+    .replace(/ignore (all )?(previous|above|prior) instructions/gi, '')
+    .replace(/disregard (all )?(previous|above|prior) instructions/gi, '')
+    .replace(/forget (all )?(previous|above|prior) instructions/gi, '');
+}
+
 async function splitWithLLM(scriptText) {
   const ai = getClient();
+
+  const sanitized = sanitizeScriptText(scriptText);
 
   let response;
   try {
@@ -67,7 +86,10 @@ async function splitWithLLM(scriptText) {
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: scriptText },
+        {
+          role: 'user',
+          content: `Please split the following script into scenes.\n\n---BEGIN SCRIPT---\n${sanitized}\n---END SCRIPT---`,
+        },
       ],
       temperature: 0.3,
       response_format: { type: 'json_object' },
@@ -89,17 +111,30 @@ async function splitWithLLM(scriptText) {
   }
 
   // The model may wrap the array in an object like { scenes: [...] }
-  const scenes = Array.isArray(parsed) ? parsed : parsed.scenes || parsed.data || parsed.result;
+  let scenes = Array.isArray(parsed) ? parsed : parsed.scenes || parsed.data || parsed.result;
 
   if (!Array.isArray(scenes) || scenes.length === 0) {
     throw new Error('LLM did not return a valid array of scenes');
   }
 
-  return scenes.map((scene) => ({
+  // Cap at 20 scenes maximum
+  let truncated = false;
+  if (scenes.length > 20) {
+    scenes = scenes.slice(0, 20);
+    truncated = true;
+  }
+
+  const result = scenes.map((scene) => ({
     narration_text: String(scene.narration_text || ''),
     visual_prompt: String(scene.visual_prompt || ''),
     duration_seconds: Number(scene.duration_seconds) || 5.0,
   }));
+
+  if (truncated) {
+    result[result.length - 1].narration_text += ' [Note: Script was truncated to 20 scenes maximum]';
+  }
+
+  return result;
 }
 
 /**
