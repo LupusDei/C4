@@ -1,3 +1,5 @@
+import { enhancePrompt } from '../services/prompt-enhancer.js';
+
 const uuidFormat = { type: 'string', format: 'uuid' };
 
 const promptHistorySchema = {
@@ -26,7 +28,45 @@ const promptHistoryListResponseSchema = {
   },
 };
 
+const enhanceBodySchema = {
+  type: 'object',
+  required: ['prompt'],
+  properties: {
+    prompt: { type: 'string', minLength: 3, maxLength: 4000 },
+    provider: { type: 'string', default: 'auto' },
+  },
+};
+
+const enhanceResponseSchema = {
+  type: 'object',
+  properties: {
+    original: { type: 'string' },
+    enhanced: { type: 'string' },
+    providerHints: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+  },
+};
+
 export default async function promptRoutes(fastify) {
+  // --- Enhance prompt ---
+  fastify.post('/api/prompts/enhance', {
+    schema: {
+      description: 'Enhance a prompt using AI creative direction',
+      tags: ['prompts'],
+      body: enhanceBodySchema,
+      response: { 200: enhanceResponseSchema },
+    },
+    handler: async (request, reply) => {
+      const { prompt, provider } = request.body;
+
+      const result = await enhancePrompt(prompt, provider || 'auto');
+
+      return reply.code(200).send(result);
+    },
+  });
+
   // --- List prompt history ---
   fastify.get('/api/prompts/history', {
     schema: {

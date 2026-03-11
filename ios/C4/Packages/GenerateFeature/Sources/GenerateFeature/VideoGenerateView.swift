@@ -1,6 +1,7 @@
 import AVKit
 import ComposableArchitecture
 import CoreKit
+import PromptFeature
 import SwiftUI
 
 public struct VideoGenerateView: View {
@@ -46,23 +47,9 @@ public struct VideoGenerateView: View {
     // MARK: - Prompt
 
     private var promptSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Prompt")
-                .font(.headline)
-
-            TextEditor(text: Binding(
-                get: { store.prompt },
-                set: { store.send(.setPrompt($0)) }
-            ))
-            .frame(minHeight: 80)
-            .padding(8)
-            .background(.quaternary)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(.tertiary, lineWidth: 1)
-            )
-        }
+        PromptEnhancerView(
+            store: store.scope(state: \.promptEnhancer, action: \.promptEnhancer)
+        )
     }
 
     // MARK: - Source Asset (image-to-video)

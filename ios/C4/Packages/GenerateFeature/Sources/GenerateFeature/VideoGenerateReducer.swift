@@ -1,12 +1,14 @@
 import ComposableArchitecture
 import CoreKit
 import Foundation
+import PromptFeature
 
 @Reducer
 public struct VideoGenerateReducer: Sendable {
     @ObservableState
     public struct State: Equatable, Sendable {
         public var prompt: String = ""
+        public var promptEnhancer = PromptEnhancerReducer.State()
         public var mode: Mode = .textToVideo
         public var sourceAssetId: UUID?
         public var duration: Int = 5
@@ -122,6 +124,7 @@ public struct VideoGenerateReducer: Sendable {
         case progressUpdate(WebSocketMessage)
         case assetLoaded(Result<Asset, Error>)
         case reset
+        case promptEnhancer(PromptEnhancerReducer.Action)
     }
 
     @Dependency(\.apiClient) var apiClient
@@ -132,10 +135,15 @@ public struct VideoGenerateReducer: Sendable {
     public init() {}
 
     public var body: some ReducerOf<Self> {
+        Scope(state: \.promptEnhancer, action: \.promptEnhancer) {
+            PromptEnhancerReducer()
+        }
+
         Reduce { state, action in
             switch action {
             case .setPrompt(let prompt):
                 state.prompt = prompt
+                state.promptEnhancer.prompt = prompt
                 return .none
 
             case .setMode(let mode):
@@ -157,6 +165,14 @@ public struct VideoGenerateReducer: Sendable {
 
             case .setProvider(let provider):
                 state.selectedProvider = provider
+                state.promptEnhancer.selectedProvider = provider == .auto ? "auto" : provider.rawValue
+                return .none
+
+            case .promptEnhancer(.promptChanged(let newPrompt)):
+                state.prompt = newPrompt
+                return .none
+
+            case .promptEnhancer:
                 return .none
 
             case .setQualityTier(let tier):
@@ -175,8 +191,10 @@ public struct VideoGenerateReducer: Sendable {
                 guard state.canGenerate, let projectId = state.selectedProjectId else { return .none }
                 state.generationStatus = .generating
 
+                let effectivePrompt = state.promptEnhancer.effectivePrompt
+
                 let request = VideoGenerateRequest(
-                    prompt: state.prompt,
+                    prompt: effectivePrompt,
                     mode: state.mode.rawValue,
                     sourceAssetId: state.sourceAssetId,
                     duration: state.duration,
@@ -244,6 +262,7 @@ public struct VideoGenerateReducer: Sendable {
 
             case .reset:
                 state.prompt = ""
+                state.promptEnhancer = PromptEnhancerReducer.State()
                 state.generationStatus = .idle
                 state.sourceAssetId = nil
                 return .merge(

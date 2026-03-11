@@ -1,12 +1,14 @@
 import ComposableArchitecture
 import CoreKit
 import Foundation
+import PromptFeature
 
 @Reducer
 public struct ImageGenerateReducer: Sendable {
     @ObservableState
     public struct State: Equatable, Sendable {
         public var prompt: String = ""
+        public var promptEnhancer = PromptEnhancerReducer.State()
         public var selectedProvider: Provider = .auto
         public var qualityTier: QualityTier = .standard
         public var selectedProjectId: UUID?
@@ -94,6 +96,7 @@ public struct ImageGenerateReducer: Sendable {
         case progressUpdate(WebSocketMessage)
         case assetLoaded(Result<Asset, Error>)
         case reset
+        case promptEnhancer(PromptEnhancerReducer.Action)
     }
 
     @Dependency(\.apiClient) var apiClient
@@ -104,14 +107,27 @@ public struct ImageGenerateReducer: Sendable {
     public init() {}
 
     public var body: some ReducerOf<Self> {
+        Scope(state: \.promptEnhancer, action: \.promptEnhancer) {
+            PromptEnhancerReducer()
+        }
+
         Reduce { state, action in
             switch action {
             case .setPrompt(let prompt):
                 state.prompt = prompt
+                state.promptEnhancer.prompt = prompt
                 return .none
 
             case .setProvider(let provider):
                 state.selectedProvider = provider
+                state.promptEnhancer.selectedProvider = provider == .auto ? "auto" : provider.rawValue
+                return .none
+
+            case .promptEnhancer(.promptChanged(let newPrompt)):
+                state.prompt = newPrompt
+                return .none
+
+            case .promptEnhancer:
                 return .none
 
             case .setQualityTier(let tier):
@@ -130,8 +146,10 @@ public struct ImageGenerateReducer: Sendable {
                 guard state.canGenerate, let projectId = state.selectedProjectId else { return .none }
                 state.generationStatus = .generating
 
+                let effectivePrompt = state.promptEnhancer.effectivePrompt
+
                 let request = ImageGenerateRequest(
-                    prompt: state.prompt,
+                    prompt: effectivePrompt,
                     provider: state.selectedProvider == .auto ? nil : state.selectedProvider.rawValue,
                     qualityTier: state.qualityTier.rawValue,
                     projectId: projectId,
@@ -198,6 +216,7 @@ public struct ImageGenerateReducer: Sendable {
 
             case .reset:
                 state.prompt = ""
+                state.promptEnhancer = PromptEnhancerReducer.State()
                 state.generationStatus = .idle
                 return .merge(
                     .cancel(id: CancelID.generation),

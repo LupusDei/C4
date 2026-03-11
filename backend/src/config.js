@@ -31,6 +31,7 @@ const config = Object.freeze({
     runwayApiKey: process.env.RUNWAY_API_KEY || '',
     creatomateApiKey: process.env.CREATOMATE_API_KEY || '',
     deepgramApiKey: process.env.DEEPGRAM_API_KEY || '',
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
   },
 
   storage: {
