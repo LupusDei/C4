@@ -26,6 +26,8 @@ const imageBodySchema = {
     provider: { type: 'string', enum: imageProviders },
     qualityTier: { type: 'string', enum: imageQualityTiers, default: 'standard' },
     aspectRatio: { type: 'string', pattern: '^\\d+:\\d+$', default: '1:1' },
+    stylePresetId: { type: 'string', format: 'uuid' },
+    enhancedPrompt: { type: 'string', maxLength: 8000 },
   },
 };
 
@@ -44,6 +46,8 @@ const videoBodySchema = {
     resolution: { type: 'string', enum: ['480p', '720p'], default: '720p' },
     mode: { type: 'string', enum: ['text-to-video', 'image-to-video'], default: 'text-to-video' },
     sourceAssetId: { type: 'string', format: 'uuid' },
+    stylePresetId: { type: 'string', format: 'uuid' },
+    enhancedPrompt: { type: 'string', maxLength: 8000 },
   },
 };
 

@@ -4,9 +4,11 @@ const promptHistorySchema = {
   type: 'object',
   properties: {
     id: uuidFormat,
+    project_id: { type: ['string', 'null'], format: 'uuid' },
     original_prompt: { type: 'string' },
     enhanced_prompt: { type: ['string', 'null'] },
     provider: { type: 'string' },
+    generation_type: { type: 'string' },
     style_preset_id: { type: ['string', 'null'] },
     asset_id: { type: ['string', 'null'] },
     kept: { type: 'boolean' },
@@ -14,9 +16,14 @@ const promptHistorySchema = {
   },
 };
 
-const promptHistoryListSchema = {
-  type: 'array',
-  items: promptHistorySchema,
+const promptHistoryListResponseSchema = {
+  type: 'object',
+  properties: {
+    items: { type: 'array', items: promptHistorySchema },
+    total: { type: 'integer' },
+    limit: { type: 'integer' },
+    offset: { type: 'integer' },
+  },
 };
 
 export default async function promptRoutes(fastify) {
@@ -31,26 +38,32 @@ export default async function promptRoutes(fastify) {
           limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
           offset: { type: 'integer', minimum: 0, default: 0 },
           search: { type: 'string', maxLength: 500 },
+          projectId: { type: 'string', format: 'uuid' },
         },
       },
-      response: { 200: promptHistoryListSchema },
+      response: { 200: promptHistoryListResponseSchema },
     },
     handler: async (request) => {
-      const { limit, offset, search } = request.query;
+      const { limit = 20, offset = 0, search, projectId } = request.query;
 
-      let query = fastify.db('prompt_history')
-        .orderBy('created_at', 'desc')
-        .limit(limit || 20)
-        .offset(offset || 0);
+      let baseQuery = fastify.db('prompt_history');
+
+      if (projectId) {
+        baseQuery = baseQuery.where('project_id', projectId);
+      }
 
       if (search) {
-        query = query.where(function () {
-          this.where('original_prompt', 'ilike', `%${search}%`)
-            .orWhere('enhanced_prompt', 'ilike', `%${search}%`);
+        const sanitized = search.replace(/[%_]/g, '\\$&');
+        baseQuery = baseQuery.where(function () {
+          this.where('original_prompt', 'ilike', `%${sanitized}%`)
+            .orWhere('enhanced_prompt', 'ilike', `%${sanitized}%`);
         });
       }
 
-      return query;
+      const [{ count }] = await baseQuery.clone().count('* as count');
+      const items = await baseQuery.orderBy('created_at', 'desc').limit(limit).offset(offset);
+
+      return { items, total: parseInt(count, 10), limit, offset };
     },
   });
 

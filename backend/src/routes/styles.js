@@ -38,10 +38,9 @@ export default async function styleRoutes(fastify) {
     handler: async (request) => {
       const { category } = request.query;
 
+      // Return all system presets + all custom presets (user_id filtering can be added when auth is implemented)
       let query = fastify.db('style_presets')
-        .where(function () {
-          this.where('is_custom', false).orWhereNull('user_id');
-        })
+        .orderBy('is_custom')
         .orderBy('category')
         .orderBy('name');
 

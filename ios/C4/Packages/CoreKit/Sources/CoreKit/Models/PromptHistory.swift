@@ -2,9 +2,11 @@ import Foundation
 
 public struct PromptHistory: Codable, Identifiable, Equatable, Sendable {
     public let id: UUID
+    public let projectId: UUID?
     public let originalPrompt: String
     public let enhancedPrompt: String?
     public let provider: String
+    public let generationType: String
     public let stylePresetId: UUID?
     public let assetId: UUID?
     public let kept: Bool
@@ -12,18 +14,22 @@ public struct PromptHistory: Codable, Identifiable, Equatable, Sendable {
 
     public init(
         id: UUID = UUID(),
+        projectId: UUID? = nil,
         originalPrompt: String,
         enhancedPrompt: String? = nil,
         provider: String,
+        generationType: String = "image",
         stylePresetId: UUID? = nil,
         assetId: UUID? = nil,
         kept: Bool = true,
         createdAt: Date = Date()
     ) {
         self.id = id
+        self.projectId = projectId
         self.originalPrompt = originalPrompt
         self.enhancedPrompt = enhancedPrompt
         self.provider = provider
+        self.generationType = generationType
         self.stylePresetId = stylePresetId
         self.assetId = assetId
         self.kept = kept

@@ -7,6 +7,7 @@ const projectSchema = {
     title: { type: 'string' },
     description: { type: ['string', 'null'] },
     asset_count: { type: 'integer' },
+    default_style_preset_id: { type: ['string', 'null'], format: 'uuid' },
     created_at: { type: 'string', format: 'date-time' },
     updated_at: { type: 'string', format: 'date-time' },
   },
@@ -114,13 +115,26 @@ export default async function projectRoutes(fastify) {
         properties: {
           title: { type: 'string', minLength: 1, maxLength: 255 },
           description: { type: 'string', maxLength: 2000 },
+          defaultStylePresetId: { type: ['string', 'null'], format: 'uuid' },
         },
       },
       response: { 200: projectSchema },
     },
     handler: async (request, reply) => {
       const { id } = request.params;
-      const updates = { ...request.body, updated_at: fastify.db.fn.now() };
+      const { defaultStylePresetId, ...rest } = request.body;
+      const updates = { ...rest, updated_at: fastify.db.fn.now() };
+
+      // Handle style preset lock
+      if (defaultStylePresetId !== undefined) {
+        if (defaultStylePresetId !== null) {
+          const preset = await fastify.db('style_presets').where({ id: defaultStylePresetId }).first();
+          if (!preset) {
+            return reply.code(404).send({ error: 'not_found', message: 'Style preset not found' });
+          }
+        }
+        updates.default_style_preset_id = defaultStylePresetId;
+      }
 
       const [project] = await fastify.db('projects')
         .where({ id })
