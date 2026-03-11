@@ -5,7 +5,7 @@ public struct PromptHistory: Codable, Identifiable, Equatable, Sendable {
     public let projectId: UUID?
     public let originalPrompt: String
     public let enhancedPrompt: String?
-    public let provider: String
+    public let provider: String?
     public let generationType: String
     public let stylePresetId: UUID?
     public let assetId: UUID?
@@ -17,7 +17,7 @@ public struct PromptHistory: Codable, Identifiable, Equatable, Sendable {
         projectId: UUID? = nil,
         originalPrompt: String,
         enhancedPrompt: String? = nil,
-        provider: String,
+        provider: String? = nil,
         generationType: String = "image",
         stylePresetId: UUID? = nil,
         assetId: UUID? = nil,
@@ -35,4 +35,18 @@ public struct PromptHistory: Codable, Identifiable, Equatable, Sendable {
         self.kept = kept
         self.createdAt = createdAt
     }
+}
+
+/// Paginated response for prompt history list endpoint.
+public struct PromptHistoryResponse: Codable, Equatable, Sendable {
+    public let items: [PromptHistory]
+    public let total: Int
+    public let limit: Int
+    public let offset: Int
+}
+
+/// Response from the remix endpoint.
+public struct RemixResult: Codable, Equatable, Sendable {
+    public let original: String
+    public let remixed: String
 }

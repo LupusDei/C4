@@ -306,16 +306,36 @@ extension APIClient {
         return try await post("/api/styles/extract", body: Request(prompt: prompt), as: ExtractedStyle.self)
     }
 
-    public func fetchPromptHistory(limit: Int = 20, offset: Int = 0, search: String? = nil) async throws -> [PromptHistory] {
-        var path = "/api/prompts/history?limit=\(limit)&offset=\(offset)"
-        if let search {
-            let encoded = search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? search
-            path += "&search=\(encoded)"
+    public func fetchPromptHistory(
+        projectId: UUID? = nil,
+        search: String? = nil,
+        generationType: String? = nil,
+        limit: Int = 20,
+        offset: Int = 0
+    ) async throws -> PromptHistoryResponse {
+        var queryParams: [String] = ["limit=\(limit)", "offset=\(offset)"]
+        if let projectId { queryParams.append("projectId=\(projectId.uuidString)") }
+        if let search, !search.isEmpty {
+            queryParams.append("search=\(search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? search)")
         }
-        return try await get(path, as: [PromptHistory].self)
+        if let generationType { queryParams.append("generationType=\(generationType)") }
+        let path = "/api/prompts/history?\(queryParams.joined(separator: "&"))"
+        return try await get(path, as: PromptHistoryResponse.self)
+    }
+
+    public func remixPrompt(prompt: String, provider: String = "auto") async throws -> RemixResult {
+        struct RemixRequest: Encodable, Sendable {
+            let prompt: String
+            let provider: String
+        }
+        return try await post(
+            "/api/prompts/remix",
+            body: RemixRequest(prompt: prompt, provider: provider),
+            as: RemixResult.self
+        )
     }
 
     public func deletePromptHistory(id: UUID) async throws {
-        _ = try await delete("/api/prompts/history/\(id.uuidString)")
+        try await deleteAndDiscard("/api/prompts/history/\(id.uuidString)")
     }
 }

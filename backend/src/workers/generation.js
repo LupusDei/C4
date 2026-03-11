@@ -85,6 +85,7 @@ async function handleImageGeneration(job, { db, wsBroadcast, storagePath }) {
     });
 
     await deductCredits(db, assetId);
+    await markOlderPromptsAsNotKept(db, projectId, prompt, assetId);
 
     // Link asset to storyboard scene if applicable
     if (sceneId) {
@@ -140,6 +141,7 @@ async function handleVideoGeneration(job, { db, wsBroadcast, storagePath }) {
     });
 
     await deductCredits(db, assetId);
+    await markOlderPromptsAsNotKept(db, projectId, prompt, assetId);
 
     // Link asset to storyboard scene if applicable
     if (sceneId) {
@@ -347,6 +349,26 @@ async function refundCredits(db, assetId) {
     description: `Refund: failed ${asset.type} generation`,
     created_at: new Date(),
   });
+}
+
+/**
+ * Regeneration detection: if the user generates with the exact same original_prompt
+ * in the same project within 5 minutes, mark the older entries as kept: false.
+ */
+async function markOlderPromptsAsNotKept(db, projectId, originalPrompt, currentAssetId) {
+  try {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    await db('prompt_history')
+      .where('project_id', projectId)
+      .where('original_prompt', originalPrompt)
+      .where('kept', true)
+      .where('created_at', '>=', fiveMinutesAgo)
+      .whereNot('asset_id', currentAssetId)
+      .update({ kept: false });
+  } catch (err) {
+    // Non-fatal — don't fail the generation if kept tracking fails
+    console.error('Failed to update kept status for older prompts:', err.message);
+  }
 }
 
 async function markFailed(db, assetId, errorMessage) {

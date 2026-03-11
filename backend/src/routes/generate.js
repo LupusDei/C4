@@ -74,7 +74,7 @@ export default async function generateRoutes(fastify) {
       response: { 202: jobResponseSchema },
     },
     handler: async (request, reply) => {
-      const { prompt, projectId, provider, qualityTier, aspectRatio } = request.body;
+      const { prompt, projectId, provider, qualityTier, aspectRatio, enhancedPrompt, stylePresetId } = request.body;
 
       const cost = getCreditCost('image', provider, qualityTier || 'standard');
       const account = await fastify.db('credit_accounts').first();
@@ -97,6 +97,20 @@ export default async function generateRoutes(fastify) {
         quality_tier: qualityTier || 'standard',
         status: 'pending',
         credit_cost: cost,
+        created_at: new Date(),
+      });
+
+      // Auto-record prompt history
+      await fastify.db('prompt_history').insert({
+        id: randomUUID(),
+        project_id: projectId,
+        original_prompt: prompt,
+        enhanced_prompt: enhancedPrompt || null,
+        provider: provider || null,
+        generation_type: 'image',
+        style_preset_id: stylePresetId || null,
+        asset_id: assetId,
+        kept: true,
         created_at: new Date(),
       });
 
@@ -128,7 +142,7 @@ export default async function generateRoutes(fastify) {
       response: { 202: jobResponseSchema },
     },
     handler: async (request, reply) => {
-      const { prompt, projectId, provider, qualityTier, duration, aspectRatio, resolution, mode, sourceAssetId } = request.body;
+      const { prompt, projectId, provider, qualityTier, duration, aspectRatio, resolution, mode, sourceAssetId, enhancedPrompt, stylePresetId } = request.body;
 
       // Resolve image URL for image-to-video mode
       let imageUrl = null;
@@ -167,6 +181,20 @@ export default async function generateRoutes(fastify) {
         quality_tier: qualityTier || 'standard',
         status: 'pending',
         credit_cost: cost,
+        created_at: new Date(),
+      });
+
+      // Auto-record prompt history
+      await fastify.db('prompt_history').insert({
+        id: randomUUID(),
+        project_id: projectId,
+        original_prompt: prompt,
+        enhanced_prompt: enhancedPrompt || null,
+        provider: provider || null,
+        generation_type: 'video',
+        style_preset_id: stylePresetId || null,
+        asset_id: assetId,
+        kept: true,
         created_at: new Date(),
       });
 

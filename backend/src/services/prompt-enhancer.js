@@ -56,6 +56,8 @@ const PROVIDER_HINTS = {
   },
 };
 
+const REMIX_SYSTEM_PROMPT = `You are a creative director. Take this image generation prompt and create a meaningful variation. Keep the core concept and mood but change specific elements: different angle, setting, time of day, color palette, or composition. The variation should feel fresh but clearly related to the original. Return ONLY the new prompt text.`;
+
 const SYSTEM_PROMPT_TEMPLATE = `You are a professional creative director for AI image generation. Enhance the user's rough prompt into a production-quality prompt. Add specific details about lighting, composition, color palette, mood, texture, and style. Adapt your language to work best with {provider}. Keep the core concept but make it vivid and specific. Return ONLY the enhanced prompt text, no explanations.`;
 
 /**
@@ -109,4 +111,22 @@ export async function enhancePrompt(prompt, provider = 'auto') {
     enhanced,
     providerHints: providerConfig.hints,
   };
+}
+
+/**
+ * Remix a prompt using Claude — creates a meaningful variation.
+ * @param {string} prompt - The original prompt text
+ * @returns {Promise<string>} Remixed prompt text
+ */
+export async function remixPrompt(prompt) {
+  const client = getAnthropic();
+
+  const message = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    system: REMIX_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  return message.content[0].text.trim();
 }

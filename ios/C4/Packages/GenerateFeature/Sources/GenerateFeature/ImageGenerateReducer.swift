@@ -17,6 +17,8 @@ public struct ImageGenerateReducer: Sendable {
         public var selectedStyle: StylePreset?
         public var showStylePicker: Bool = false
         @Presents public var stylePicker: StylePickerReducer.State?
+        public var isHistoryPresented: Bool = false
+        @Presents public var history: PromptHistoryReducer.State?
 
         public init() {}
 
@@ -104,6 +106,10 @@ public struct ImageGenerateReducer: Sendable {
         case dismissStylePicker
         case stylePicker(PresentationAction<StylePickerReducer.Action>)
         case setDefaultStyle(StylePreset?)
+        case historyTapped
+        case setHistoryPresented(Bool)
+        case history(PresentationAction<PromptHistoryReducer.Action>)
+        case loadPromptFromHistory(String)
     }
 
     @Dependency(\.apiClient) var apiClient
@@ -252,10 +258,46 @@ public struct ImageGenerateReducer: Sendable {
             case .setDefaultStyle(let preset):
                 state.selectedStyle = preset
                 return .none
+
+            case .historyTapped:
+                state.history = PromptHistoryReducer.State()
+                state.isHistoryPresented = true
+                return .none
+
+            case .setHistoryPresented(let presented):
+                state.isHistoryPresented = presented
+                if !presented { state.history = nil }
+                return .none
+
+            case .history(.presented(.entryTapped(let entry))):
+                let prompt = entry.enhancedPrompt ?? entry.originalPrompt
+                state.prompt = prompt
+                state.promptEnhancer.prompt = prompt
+                state.isHistoryPresented = false
+                state.history = nil
+                return .none
+
+            case .history(.presented(.remixResponse(.success(let result)))):
+                state.prompt = result.remixed
+                state.promptEnhancer.prompt = result.remixed
+                state.isHistoryPresented = false
+                state.history = nil
+                return .none
+
+            case .history:
+                return .none
+
+            case .loadPromptFromHistory(let prompt):
+                state.prompt = prompt
+                state.promptEnhancer.prompt = prompt
+                return .none
             }
         }
         .ifLet(\.$stylePicker, action: \.stylePicker) {
             StylePickerReducer()
+        }
+        .ifLet(\.$history, action: \.history) {
+            PromptHistoryReducer()
         }
     }
 }

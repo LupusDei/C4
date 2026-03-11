@@ -23,12 +23,29 @@ public struct ImageGenerateView: View {
             .padding()
         }
         .navigationTitle("Generate Image")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    store.send(.historyTapped)
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                }
+            }
+        }
         .sheet(isPresented: Binding(
             get: { store.stylePicker != nil },
             set: { if !$0 { store.send(.dismissStylePicker) } }
         )) {
             if let pickerStore = store.scope(state: \.stylePicker, action: \.stylePicker.presented) {
                 StylePickerView(store: pickerStore)
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { store.isHistoryPresented },
+            set: { store.send(.setHistoryPresented($0)) }
+        )) {
+            if let historyStore = store.scope(state: \.history, action: \.history) {
+                PromptHistoryView(store: historyStore)
             }
         }
     }

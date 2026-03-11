@@ -1,4 +1,4 @@
-import { enhancePrompt } from '../services/prompt-enhancer.js';
+import { enhancePrompt, remixPrompt } from '../services/prompt-enhancer.js';
 
 const uuidFormat = { type: 'string', format: 'uuid' };
 
@@ -79,17 +79,22 @@ export default async function promptRoutes(fastify) {
           offset: { type: 'integer', minimum: 0, default: 0 },
           search: { type: 'string', maxLength: 500 },
           projectId: { type: 'string', format: 'uuid' },
+          generationType: { type: 'string', enum: ['image', 'video'] },
         },
       },
       response: { 200: promptHistoryListResponseSchema },
     },
     handler: async (request) => {
-      const { limit = 20, offset = 0, search, projectId } = request.query;
+      const { limit = 20, offset = 0, search, projectId, generationType } = request.query;
 
       let baseQuery = fastify.db('prompt_history');
 
       if (projectId) {
         baseQuery = baseQuery.where('project_id', projectId);
+      }
+
+      if (generationType) {
+        baseQuery = baseQuery.where('generation_type', generationType);
       }
 
       if (search) {
@@ -157,6 +162,33 @@ export default async function promptRoutes(fastify) {
       }
 
       return { message: 'Prompt history entry deleted' };
+    },
+  });
+
+  // --- Remix prompt ---
+  fastify.post('/api/prompts/remix', {
+    schema: {
+      description: 'Create a meaningful variation of a prompt using AI',
+      tags: ['prompts'],
+      body: {
+        type: 'object',
+        required: ['prompt'],
+        properties: {
+          prompt: { type: 'string', minLength: 1, maxLength: 4000 },
+          provider: { type: 'string', default: 'auto' },
+        },
+      },
+    },
+    handler: async (request, reply) => {
+      const { prompt } = request.body;
+
+      try {
+        const remixed = await remixPrompt(prompt);
+        return reply.send({ original: prompt, remixed });
+      } catch (err) {
+        request.log.error({ err }, 'Prompt remix failed');
+        return reply.code(500).send({ error: 'remix_failed', message: err.message });
+      }
     },
   });
 }
