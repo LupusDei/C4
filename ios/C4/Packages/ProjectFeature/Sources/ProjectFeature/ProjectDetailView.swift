@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import CoreKit
+import StoryboardFeature
 import SwiftUI
 
 public struct ProjectDetailView: View {
@@ -12,6 +13,7 @@ public struct ProjectDetailView: View {
     public var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                storyboardsSection
                 assetGridSection
                 notesSection
             }
@@ -19,6 +21,30 @@ public struct ProjectDetailView: View {
         }
         .navigationTitle(store.project.title)
         .onAppear { store.send(.onAppear) }
+    }
+
+    // MARK: - Storyboards
+
+    private var storyboardsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Storyboards")
+                    .font(.title3.bold())
+                Spacer()
+                NavigationLink {
+                    StoryboardListView(
+                        store: Store(
+                            initialState: StoryboardListReducer.State(projectId: store.project.id)
+                        ) {
+                            StoryboardListReducer()
+                        }
+                    )
+                } label: {
+                    Label("View All", systemImage: "rectangle.stack")
+                        .font(.subheadline)
+                }
+            }
+        }
     }
 
     // MARK: - Asset Grid

@@ -3,32 +3,28 @@
 import PackageDescription
 
 let package = Package(
-    name: "ProjectFeature",
+    name: "StoryboardFeature",
     platforms: [.iOS(.v18), .macOS(.v14)],
     products: [
-        .library(name: "ProjectFeature", targets: ["ProjectFeature"]),
+        .library(name: "StoryboardFeature", targets: ["StoryboardFeature"]),
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.17.0"),
         .package(path: "../CoreKit"),
-        .package(path: "../GenerateFeature"),
-        .package(path: "../StoryboardFeature"),
     ],
     targets: [
         .target(
-            name: "ProjectFeature",
+            name: "StoryboardFeature",
             dependencies: [
                 "CoreKit",
-                "GenerateFeature",
-                "StoryboardFeature",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
-            path: "Sources/ProjectFeature"
+            path: "Sources/StoryboardFeature"
         ),
         .testTarget(
-            name: "ProjectFeatureTests",
-            dependencies: ["ProjectFeature"],
-            path: "Tests/ProjectFeatureTests"
+            name: "StoryboardFeatureTests",
+            dependencies: ["StoryboardFeature"],
+            path: "Tests/StoryboardFeatureTests"
         ),
     ]
 )

@@ -2,6 +2,7 @@ import ComposableArchitecture
 import CreditFeature
 import GenerateFeature
 import ProjectFeature
+import StoryboardFeature
 import SwiftUI
 
 @main

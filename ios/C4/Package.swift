@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "GenerateFeature", targets: ["GenerateFeature"]),
         .library(name: "AssemblyFeature", targets: ["AssemblyFeature"]),
         .library(name: "CreditFeature", targets: ["CreditFeature"]),
+        .library(name: "StoryboardFeature", targets: ["StoryboardFeature"]),
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.17.0"),
@@ -33,6 +34,7 @@ let package = Package(
             dependencies: [
                 "CoreKit",
                 "GenerateFeature",
+                "StoryboardFeature",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             path: "Packages/ProjectFeature/Sources/ProjectFeature"
@@ -67,6 +69,19 @@ let package = Package(
             name: "AssemblyFeatureTests",
             dependencies: ["AssemblyFeature"],
             path: "Packages/AssemblyFeature/Tests/AssemblyFeatureTests"
+        ),
+        .target(
+            name: "StoryboardFeature",
+            dependencies: [
+                "CoreKit",
+                .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
+            ],
+            path: "Packages/StoryboardFeature/Sources/StoryboardFeature"
+        ),
+        .testTarget(
+            name: "StoryboardFeatureTests",
+            dependencies: ["StoryboardFeature"],
+            path: "Packages/StoryboardFeature/Tests/StoryboardFeatureTests"
         ),
         .target(
             name: "CreditFeature",
