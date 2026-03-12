@@ -23,6 +23,8 @@ public struct VideoGenerateReducer: Sendable {
         @Presents public var stylePicker: StylePickerReducer.State?
         public var isHistoryPresented: Bool = false
         @Presents public var history: PromptHistoryReducer.State?
+        public var activityMode: ActivityMode = .idle
+        public var showCompletionToast: Bool = false
 
         public init() {}
 
@@ -138,6 +140,8 @@ public struct VideoGenerateReducer: Sendable {
         case setHistoryPresented(Bool)
         case history(PresentationAction<PromptHistoryReducer.Action>)
         case loadPromptFromHistory(String)
+        case setActivityMode(ActivityMode)
+        case dismissCompletionToast
     }
 
     @Dependency(\.apiClient) var apiClient
@@ -200,9 +204,18 @@ public struct VideoGenerateReducer: Sendable {
                 state.aspectRatio = ratio
                 return .none
 
+            case .setActivityMode(let mode):
+                state.activityMode = mode
+                return .none
+
+            case .dismissCompletionToast:
+                state.showCompletionToast = false
+                return .none
+
             case .generateTapped:
                 guard state.canGenerate, let projectId = state.selectedProjectId else { return .none }
                 state.generationStatus = .generating
+                state.activityMode = .generating
 
                 // Use enhanced prompt if available, then append style modifier
                 var fullPrompt = state.promptEnhancer.effectivePrompt
@@ -246,6 +259,7 @@ public struct VideoGenerateReducer: Sendable {
 
             case .generationResponse(.failure(let error)):
                 state.generationStatus = .error(error.localizedDescription)
+                state.activityMode = .idle
                 return .none
 
             case .progressUpdate(let message):
@@ -271,16 +285,24 @@ public struct VideoGenerateReducer: Sendable {
 
             case .assetLoaded(.success(let asset)):
                 state.generationStatus = .complete(asset)
-                return .none
+                state.activityMode = .idle
+                state.showCompletionToast = true
+                return .run { send in
+                    try await Task.sleep(for: .seconds(3))
+                    await send(.dismissCompletionToast)
+                }
 
             case .assetLoaded(.failure(let error)):
                 state.generationStatus = .error(error.localizedDescription)
+                state.activityMode = .idle
                 return .none
 
             case .reset:
                 state.prompt = ""
                 state.promptEnhancer = PromptEnhancerReducer.State()
                 state.generationStatus = .idle
+                state.activityMode = .idle
+                state.showCompletionToast = false
                 state.sourceAssetId = nil
                 return .merge(
                     .cancel(id: CancelID.generation),

@@ -12,21 +12,40 @@ public struct VideoGenerateView: View {
     }
 
     public var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                modeSection
-                promptSection
-                styleSection
-                if store.mode == .imageToVideo {
-                    sourceAssetSection
+        ZStack(alignment: .bottom) {
+            ScrollView {
+                VStack(spacing: 20) {
+                    modeSection
+                    promptSection
+                    styleSection
+                        .activityResponsive(mode: store.activityMode)
+                    if store.mode == .imageToVideo {
+                        sourceAssetSection
+                    }
+                    settingsSection
+                        .activityResponsive(mode: store.activityMode)
+                    costSection
+                    resultSection
                 }
-                durationSection
-                settingsSection
-                costSection
-                generateButton
-                resultSection
+                .padding()
+                .padding(.bottom, 80) // Space for sticky CTA
             }
-            .padding()
+
+            // Sticky CTA replaces the old inline generate button
+            StickyCtaOverlay(
+                title: "Generate Video",
+                icon: "film",
+                isLoading: store.isGenerating,
+                isEnabled: store.canGenerate,
+                action: { store.send(.generateTapped) }
+            )
+        }
+        .overlay(alignment: .top) {
+            CompletionToast(
+                message: "Video generated successfully",
+                isPresented: store.showCompletionToast
+            )
+            .animation(.spring(duration: 0.4), value: store.showCompletionToast)
         }
         .navigationTitle("Generate Video")
         .toolbar {
@@ -76,6 +95,9 @@ public struct VideoGenerateView: View {
         PromptEnhancerView(
             store: store.scope(state: \.promptEnhancer, action: \.promptEnhancer)
         )
+        .onTapGesture {
+            store.send(.setActivityMode(.composing))
+        }
     }
 
     // MARK: - Style
@@ -159,82 +181,43 @@ public struct VideoGenerateView: View {
         }
     }
 
-    // MARK: - Duration
-
-    private var durationSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Duration")
-                    .font(.headline)
-                Spacer()
-                Text("\(store.duration)s")
-                    .font(.headline)
-                    .monospacedDigit()
-                    .foregroundStyle(Color.accentColor)
-            }
-
-            Slider(
-                value: Binding(
-                    get: { Double(store.duration) },
-                    set: { store.send(.setDuration(Int($0))) }
-                ),
-                in: 1...15,
-                step: 1
-            )
-
-            HStack {
-                Text("1s")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("15s")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    // MARK: - Settings
+    // MARK: - Settings (Panel Pickers + Duration Stepper)
 
     private var settingsSection: some View {
-        VStack(spacing: 12) {
-            Picker("Resolution", selection: Binding(
-                get: { store.resolution },
-                set: { store.send(.setResolution($0)) }
-            )) {
-                ForEach(VideoGenerateReducer.Resolution.allCases, id: \.self) { res in
-                    Text(res.displayName).tag(res)
-                }
-            }
+        VStack(spacing: 16) {
+            DurationStepperView(
+                duration: store.duration,
+                onSet: { store.send(.setDuration($0)) }
+            )
 
-            Picker("Quality", selection: Binding(
-                get: { store.qualityTier },
-                set: { store.send(.setQualityTier($0)) }
-            )) {
-                ForEach(VideoGenerateReducer.QualityTier.allCases, id: \.self) { tier in
-                    Text(tier.displayName).tag(tier)
-                }
-            }
+            AspectRatioPanelView(
+                options: VideoGenerateReducer.AspectRatio.allCases,
+                selection: store.aspectRatio,
+                onSelect: { store.send(.setAspectRatio($0)) }
+            )
 
-            Picker("Provider", selection: Binding(
-                get: { store.selectedProvider },
-                set: { store.send(.setProvider($0)) }
-            )) {
-                ForEach(VideoGenerateReducer.Provider.allCases, id: \.self) { provider in
-                    Text(provider.displayName).tag(provider)
-                }
-            }
+            PanelPicker(
+                "Resolution",
+                options: VideoGenerateReducer.Resolution.allCases,
+                selection: store.resolution,
+                label: { $0.displayName },
+                onSelect: { store.send(.setResolution($0)) }
+            )
 
-            Picker("Aspect Ratio", selection: Binding(
-                get: { store.aspectRatio },
-                set: { store.send(.setAspectRatio($0)) }
-            )) {
-                ForEach(VideoGenerateReducer.AspectRatio.allCases, id: \.self) { ratio in
-                    Text(ratio.rawValue).tag(ratio)
-                }
-            }
+            QualityPanelView(
+                options: VideoGenerateReducer.QualityTier.allCases,
+                selection: store.qualityTier,
+                displayName: { $0.displayName },
+                onSelect: { store.send(.setQualityTier($0)) }
+            )
+
+            ProviderPanelView(
+                options: VideoGenerateReducer.Provider.allCases,
+                selection: store.selectedProvider,
+                displayName: { $0.displayName },
+                onSelect: { store.send(.setProvider($0)) }
+            )
         }
-        .pickerStyle(.menu)
     }
 
     // MARK: - Cost
@@ -248,31 +231,6 @@ public struct VideoGenerateView: View {
             Spacer()
         }
         .padding(.horizontal, 4)
-    }
-
-    // MARK: - Generate Button
-
-    private var generateButton: some View {
-        Button {
-            store.send(.generateTapped)
-        } label: {
-            HStack {
-                if store.isGenerating {
-                    ProgressView()
-                        .tint(.white)
-                } else {
-                    Image(systemName: "film")
-                }
-                Text(store.isGenerating ? "Generating..." : "Generate Video")
-            }
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(store.canGenerate ? Color.accentColor : Color.gray)
-            .foregroundStyle(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-        .disabled(!store.canGenerate)
     }
 
     // MARK: - Result
@@ -307,34 +265,11 @@ public struct VideoGenerateView: View {
             .padding(.top, 20)
 
         case .complete(let asset):
-            VStack(spacing: 12) {
-                if let url = URL(string: "http://localhost:3000/api/assets/\(asset.id)/file") {
-                    VideoPlayer(player: AVPlayer(url: url))
-                        .frame(height: 220)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-
-                HStack {
-                    Label("\(asset.creditCost) credits", systemImage: "creditcard")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Label(asset.provider, systemImage: "cpu")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Button {
-                    store.send(.reset)
-                } label: {
-                    Text("Generate Another")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(.quaternary)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-            }
-            .padding(.top, 20)
+            MasonryResultGrid(
+                asset: asset,
+                mediaType: .video,
+                onReset: { store.send(.reset) }
+            )
 
         case .error(let message):
             VStack(spacing: 12) {
@@ -351,8 +286,9 @@ public struct VideoGenerateView: View {
                     store.send(.generateTapped)
                 } label: {
                     Text("Retry")
+                        .font(.subheadline.weight(.medium))
                         .frame(maxWidth: .infinity)
-                        .padding()
+                        .padding(.vertical, 12)
                         .background(Color.accentColor)
                         .foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
