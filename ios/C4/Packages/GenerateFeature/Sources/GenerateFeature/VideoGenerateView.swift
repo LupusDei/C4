@@ -1,43 +1,66 @@
 import AVKit
 import ComposableArchitecture
 import CoreKit
+import DesignKit
 import PromptFeature
 import SwiftUI
 
 public struct VideoGenerateView: View {
     @Bindable var store: StoreOf<VideoGenerateReducer>
+    @FocusState private var isPromptFocused: Bool
 
     public init(store: StoreOf<VideoGenerateReducer>) {
         self.store = store
     }
 
     public var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                modeSection
-                promptSection
-                styleSection
-                if store.mode == .imageToVideo {
-                    sourceAssetSection
+        ZStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    modeSection
+                    if store.mode == .imageToVideo {
+                        sourceAssetSection
+                    }
+                    durationSection
+                    settingsSection
+                    costSection
+                    resultSection
                 }
-                durationSection
-                settingsSection
-                costSection
-                generateButton
-                resultSection
+                .padding()
+                .padding(.bottom, 120) // space for creative stage
             }
-            .padding()
-        }
-        .navigationTitle("Generate Video")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    store.send(.historyTapped)
-                } label: {
-                    Image(systemName: "clock.arrow.circlepath")
+            .navigationTitle("Generate Video")
+
+            // Creative Stage at bottom
+            VStack(spacing: 0) {
+                Spacer()
+
+                if isPromptFocused {
+                    ContextualToolbar(actions: .init(
+                        onStyle: { store.send(.styleButtonTapped) },
+                        onHistory: { store.send(.historyTapped) },
+                        onEnhance: { store.send(.promptEnhancer(.enhanceTapped)) },
+                        onCamera: nil
+                    ))
+                    .padding(.bottom, ThemeSpacing.xs)
                 }
+
+                CreativeStageView(
+                    text: Binding(
+                        get: { store.prompt },
+                        set: { store.send(.setPrompt($0)) }
+                    ),
+                    styleName: store.selectedStyle?.name,
+                    wordCount: store.prompt
+                        .split(separator: " ")
+                        .count,
+                    onGenerate: { store.send(.generateTapped) }
+                )
+                .focused($isPromptFocused)
             }
         }
+        .warmBackground()
+        .synthesisTheme()
         .sheet(isPresented: Binding(
             get: { store.stylePicker != nil },
             set: { if !$0 { store.send(.dismissStylePicker) } }
@@ -70,171 +93,121 @@ public struct VideoGenerateView: View {
         .pickerStyle(.segmented)
     }
 
-    // MARK: - Prompt
-
-    private var promptSection: some View {
-        PromptEnhancerView(
-            store: store.scope(state: \.promptEnhancer, action: \.promptEnhancer)
-        )
-    }
-
-    // MARK: - Style
-
-    private var styleSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Style")
-                .font(.headline)
-
-            Button {
-                store.send(.styleButtonTapped)
-            } label: {
-                HStack {
-                    if let style = store.selectedStyle {
-                        Image(systemName: "paintpalette.fill")
-                            .foregroundStyle(Color.accentColor)
-                        Text(style.name)
-                            .font(.subheadline.weight(.medium))
-                        Spacer()
-                        Button {
-                            store.send(.setDefaultStyle(nil))
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Image(systemName: "paintpalette")
-                            .foregroundStyle(.secondary)
-                        Text("Choose a style...")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .padding()
-                .background(.quaternary)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
     // MARK: - Source Asset (image-to-video)
 
     private var sourceAssetSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Source Image")
-                .font(.headline)
+        ThemeCard {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Source Image")
+                    .font(ThemeTypography.heading(size: 16))
 
-            if store.sourceAssetId != nil {
-                HStack {
-                    Image(systemName: "photo.fill")
-                        .foregroundStyle(.green)
-                    Text("Image selected")
-                        .font(.subheadline)
-                    Spacer()
-                    Button("Clear") {
-                        store.send(.setSourceAsset(nil))
+                if store.sourceAssetId != nil {
+                    HStack {
+                        Image(systemName: "photo.fill")
+                            .foregroundStyle(.green)
+                        Text("Image selected")
+                            .font(ThemeTypography.body)
+                        Spacer()
+                        ThemeButton("Clear", tier: .quiet) {
+                            store.send(.setSourceAsset(nil))
+                        }
                     }
-                    .font(.caption)
+                } else {
+                    HStack {
+                        Image(systemName: "photo.badge.plus")
+                            .foregroundStyle(.secondary)
+                        Text("Select a source image from a project")
+                            .font(ThemeTypography.body)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .padding()
-                .background(.quaternary)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-            } else {
-                HStack {
-                    Image(systemName: "photo.badge.plus")
-                        .foregroundStyle(.secondary)
-                    Text("Select a source image from a project")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(.quaternary)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
+            .padding(ThemeSpacing.md)
         }
     }
 
     // MARK: - Duration
 
     private var durationSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Duration")
-                    .font(.headline)
-                Spacer()
-                Text("\(store.duration)s")
-                    .font(.headline)
-                    .monospacedDigit()
-                    .foregroundStyle(Color.accentColor)
-            }
+        ThemeCard {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Duration")
+                        .font(ThemeTypography.heading(size: 16))
+                    Spacer()
+                    Text("\(store.duration)s")
+                        .font(ThemeTypography.numerical(size: 18))
+                        .foregroundStyle(ThemeColors.light.accent)
+                }
 
-            Slider(
-                value: Binding(
-                    get: { Double(store.duration) },
-                    set: { store.send(.setDuration(Int($0))) }
-                ),
-                in: 1...15,
-                step: 1
-            )
+                Slider(
+                    value: Binding(
+                        get: { Double(store.duration) },
+                        set: { store.send(.setDuration(Int($0))) }
+                    ),
+                    in: 1...15,
+                    step: 1
+                )
+                .tint(ThemeColors.light.accent)
 
-            HStack {
-                Text("1s")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("15s")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Text("1s")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("15s")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .padding(ThemeSpacing.md)
         }
     }
 
     // MARK: - Settings
 
     private var settingsSection: some View {
-        VStack(spacing: 12) {
-            Picker("Resolution", selection: Binding(
-                get: { store.resolution },
-                set: { store.send(.setResolution($0)) }
-            )) {
-                ForEach(VideoGenerateReducer.Resolution.allCases, id: \.self) { res in
-                    Text(res.displayName).tag(res)
+        ThemeCard {
+            VStack(spacing: 12) {
+                Picker("Resolution", selection: Binding(
+                    get: { store.resolution },
+                    set: { store.send(.setResolution($0)) }
+                )) {
+                    ForEach(VideoGenerateReducer.Resolution.allCases, id: \.self) { res in
+                        Text(res.displayName).tag(res)
+                    }
                 }
-            }
 
-            Picker("Quality", selection: Binding(
-                get: { store.qualityTier },
-                set: { store.send(.setQualityTier($0)) }
-            )) {
-                ForEach(VideoGenerateReducer.QualityTier.allCases, id: \.self) { tier in
-                    Text(tier.displayName).tag(tier)
+                Picker("Quality", selection: Binding(
+                    get: { store.qualityTier },
+                    set: { store.send(.setQualityTier($0)) }
+                )) {
+                    ForEach(VideoGenerateReducer.QualityTier.allCases, id: \.self) { tier in
+                        Text(tier.displayName).tag(tier)
+                    }
                 }
-            }
 
-            Picker("Provider", selection: Binding(
-                get: { store.selectedProvider },
-                set: { store.send(.setProvider($0)) }
-            )) {
-                ForEach(VideoGenerateReducer.Provider.allCases, id: \.self) { provider in
-                    Text(provider.displayName).tag(provider)
+                Picker("Provider", selection: Binding(
+                    get: { store.selectedProvider },
+                    set: { store.send(.setProvider($0)) }
+                )) {
+                    ForEach(VideoGenerateReducer.Provider.allCases, id: \.self) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
                 }
-            }
 
-            Picker("Aspect Ratio", selection: Binding(
-                get: { store.aspectRatio },
-                set: { store.send(.setAspectRatio($0)) }
-            )) {
-                ForEach(VideoGenerateReducer.AspectRatio.allCases, id: \.self) { ratio in
-                    Text(ratio.rawValue).tag(ratio)
+                Picker("Aspect Ratio", selection: Binding(
+                    get: { store.aspectRatio },
+                    set: { store.send(.setAspectRatio($0)) }
+                )) {
+                    ForEach(VideoGenerateReducer.AspectRatio.allCases, id: \.self) { ratio in
+                        Text(ratio.rawValue).tag(ratio)
+                    }
                 }
             }
+            .pickerStyle(.menu)
+            .padding(ThemeSpacing.md)
         }
-        .pickerStyle(.menu)
     }
 
     // MARK: - Cost
@@ -244,35 +217,10 @@ public struct VideoGenerateView: View {
             Image(systemName: "creditcard")
                 .foregroundStyle(.secondary)
             Text("Estimated cost: **\(store.estimatedCreditCost) credits**")
-                .font(.subheadline)
+                .font(ThemeTypography.body)
             Spacer()
         }
         .padding(.horizontal, 4)
-    }
-
-    // MARK: - Generate Button
-
-    private var generateButton: some View {
-        Button {
-            store.send(.generateTapped)
-        } label: {
-            HStack {
-                if store.isGenerating {
-                    ProgressView()
-                        .tint(.white)
-                } else {
-                    Image(systemName: "film")
-                }
-                Text(store.isGenerating ? "Generating..." : "Generate Video")
-            }
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(store.canGenerate ? Color.accentColor : Color.gray)
-            .foregroundStyle(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-        .disabled(!store.canGenerate)
     }
 
     // MARK: - Result
@@ -307,32 +255,29 @@ public struct VideoGenerateView: View {
             .padding(.top, 20)
 
         case .complete(let asset):
-            VStack(spacing: 12) {
-                if let url = URL(string: "http://localhost:3000/api/assets/\(asset.id)/file") {
-                    VideoPlayer(player: AVPlayer(url: url))
-                        .frame(height: 220)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
+            ThemeCard {
+                VStack(spacing: 12) {
+                    if let url = URL(string: "http://localhost:3000/api/assets/\(asset.id)/file") {
+                        VideoPlayer(player: AVPlayer(url: url))
+                            .frame(height: 220)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
 
-                HStack {
-                    Label("\(asset.creditCost) credits", systemImage: "creditcard")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Label(asset.provider, systemImage: "cpu")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                    HStack {
+                        Label("\(asset.creditCost) credits", systemImage: "creditcard")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Label(asset.provider, systemImage: "cpu")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
 
-                Button {
-                    store.send(.reset)
-                } label: {
-                    Text("Generate Another")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(.quaternary)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    ThemeButton("Generate Another", tier: .quiet) {
+                        store.send(.reset)
+                    }
                 }
+                .padding(ThemeSpacing.md)
             }
             .padding(.top, 20)
 
@@ -347,15 +292,8 @@ public struct VideoGenerateView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
-                Button {
+                ThemeButton("Retry", systemImage: "arrow.clockwise", tier: .primary) {
                     store.send(.generateTapped)
-                } label: {
-                    Text("Retry")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }
             .padding(.top, 20)
