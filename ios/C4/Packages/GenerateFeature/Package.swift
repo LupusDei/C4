@@ -11,6 +11,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.17.0"),
         .package(path: "../CoreKit"),
+        .package(path: "../DesignKit"),
         .package(path: "../PromptFeature"),
     ],
     targets: [
@@ -18,6 +19,7 @@ let package = Package(
             name: "GenerateFeature",
             dependencies: [
                 "CoreKit",
+                "DesignKit",
                 "PromptFeature",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],

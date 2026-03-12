@@ -13,11 +13,16 @@ let package = Package(
         .library(name: "AssemblyFeature", targets: ["AssemblyFeature"]),
         .library(name: "CreditFeature", targets: ["CreditFeature"]),
         .library(name: "StoryboardFeature", targets: ["StoryboardFeature"]),
+        .library(name: "DesignKit", targets: ["DesignKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.17.0"),
     ],
     targets: [
+        .target(
+            name: "DesignKit",
+            path: "Packages/DesignKit/Sources/DesignKit"
+        ),
         .target(
             name: "CoreKit",
             dependencies: [
@@ -34,6 +39,7 @@ let package = Package(
             name: "PromptFeature",
             dependencies: [
                 "CoreKit",
+                "DesignKit",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             path: "Packages/PromptFeature/Sources/PromptFeature"
@@ -47,6 +53,7 @@ let package = Package(
             name: "ProjectFeature",
             dependencies: [
                 "CoreKit",
+                "DesignKit",
                 "GenerateFeature",
                 "PromptFeature",
                 "StoryboardFeature",
@@ -63,6 +70,7 @@ let package = Package(
             name: "GenerateFeature",
             dependencies: [
                 "CoreKit",
+                "DesignKit",
                 "PromptFeature",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
@@ -77,6 +85,7 @@ let package = Package(
             name: "AssemblyFeature",
             dependencies: [
                 "CoreKit",
+                "DesignKit",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             path: "Packages/AssemblyFeature/Sources/AssemblyFeature"
@@ -90,6 +99,7 @@ let package = Package(
             name: "StoryboardFeature",
             dependencies: [
                 "CoreKit",
+                "DesignKit",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             path: "Packages/StoryboardFeature/Sources/StoryboardFeature"
@@ -103,6 +113,7 @@ let package = Package(
             name: "CreditFeature",
             dependencies: [
                 "CoreKit",
+                "DesignKit",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             path: "Packages/CreditFeature/Sources/CreditFeature"
