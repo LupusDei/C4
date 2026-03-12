@@ -5,6 +5,7 @@ import SwiftUI
 public struct ProjectListView: View {
     @Bindable var store: StoreOf<ProjectListReducer>
     @State private var useGrid = true
+    @State private var pressedProjectId: UUID?
 
     public init(store: StoreOf<ProjectListReducer>) {
         self.store = store
@@ -103,33 +104,59 @@ public struct ProjectListView: View {
         }
     }
 
+    // TODO: Replace with ThemeCard from DesignKit when available
     private func projectCard(_ project: Project) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: "folder.fill")
-                .font(.title)
-                .foregroundStyle(Color.accentColor)
+        VStack(alignment: .leading, spacing: 0) {
+            // 3:4 hero image area
+            RoundedRectangle(cornerRadius: 8)
+                .fill(
+                    LinearGradient(
+                        colors: [.accentColor.opacity(0.15), .accentColor.opacity(0.05)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .aspectRatio(3.0/4.0, contentMode: .fit)
+                .overlay {
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.title2)
+                        .foregroundStyle(.secondary.opacity(0.6))
+                }
 
-            Text(project.title)
-                .font(.headline)
-                .lineLimit(2)
-
-            if !project.description.isEmpty {
-                Text(project.description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            // Title below in serif headline
+            VStack(alignment: .leading, spacing: 4) {
+                Text(project.title)
+                    .font(.system(.headline, design: .serif))
                     .lineLimit(2)
+                    .foregroundStyle(.primary)
+
+                if !project.description.isEmpty {
+                    Text(project.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Text(project.updatedAt, style: .relative)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
-
-            Spacer()
-
-            Text(project.updatedAt, style: .relative)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
-        .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-        .padding()
-        .background(.quaternary)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        // Warm shadow that deepens on press
+        .shadow(
+            color: .black.opacity(pressedProjectId == project.id ? 0.16 : 0.08),
+            radius: pressedProjectId == project.id ? 12 : 6,
+            y: pressedProjectId == project.id ? 6 : 3
+        )
+        .scaleEffect(pressedProjectId == project.id ? 0.98 : 1.0)
+        .animation(.easeInOut(duration: 0.15), value: pressedProjectId)
+        .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
+            pressedProjectId = pressing ? project.id : nil
+        }, perform: {})
     }
 
     // MARK: - List View

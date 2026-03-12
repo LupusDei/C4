@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import CoreKit
+import DesignKit
 import PromptFeature
 import StoryboardFeature
 import SwiftUI
@@ -14,6 +15,12 @@ public struct ProjectDetailView: View {
     public var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                // Breadcrumb: Projects › [Project Name]
+                BreadcrumbView(crumbs: [
+                    Breadcrumb("Projects"),
+                    Breadcrumb(store.project.title),
+                ])
+
                 defaultStyleSection
                 storyboardsSection
                 assetGridSection

@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import CoreKit
+import DesignKit
 import SwiftUI
 
 public struct StoryboardTimelineView: View {
@@ -11,6 +12,13 @@ public struct StoryboardTimelineView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
+            // Breadcrumb: Projects › … › Storyboard › [Title]
+            BreadcrumbView(crumbs: [
+                Breadcrumb("Projects"),
+                Breadcrumb("Storyboard"),
+                Breadcrumb(store.storyboard.title),
+            ])
+
             if store.isLoading {
                 Spacer()
                 ProgressView("Loading scenes...")
@@ -158,53 +166,65 @@ public struct StoryboardTimelineView: View {
 
             Divider()
 
-            // Horizontal scrollable timeline with drag-drop
+            // Horizontal scrollable timeline with drag-drop and connector lines
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
+                LazyHStack(spacing: 0) {
                     ForEach(Array(store.scenes.enumerated()), id: \.element.id) { index, sceneItem in
-                        sceneCard(for: sceneItem)
-                            .draggable(sceneItem.id.uuidString) {
-                                sceneCard(for: sceneItem)
-                                    .opacity(0.8)
+                        HStack(spacing: 0) {
+                            // Connector line before card (except first)
+                            if index > 0 {
+                                connectorLine
                             }
-                            .dropDestination(for: String.self) { items, _ in
-                                guard let draggedIdString = items.first,
-                                      let draggedId = UUID(uuidString: draggedIdString),
-                                      let fromIndex = store.scenes.firstIndex(where: { $0.id == draggedId }),
-                                      fromIndex != index else { return false }
-                                store.send(.moveScene(from: fromIndex, to: index))
-                                return true
-                            }
-                            .contextMenu {
-                                Button {
-                                    store.send(.selectScene(sceneItem))
-                                } label: {
-                                    Label("Edit Scene", systemImage: "pencil")
-                                }
 
-                                Button {
-                                    store.send(.showVariationsForScene(sceneItem.id))
-                                } label: {
-                                    Label("Variations", systemImage: "square.grid.2x2")
+                            sceneCard(for: sceneItem)
+                                .draggable(sceneItem.id.uuidString) {
+                                    sceneCard(for: sceneItem)
+                                        .opacity(0.8)
                                 }
-
-                                Button {
-                                    store.send(.regenerateScene(sceneId: sceneItem.id))
-                                } label: {
-                                    Label("Regenerate", systemImage: "arrow.clockwise")
+                                .dropDestination(for: String.self) { items, _ in
+                                    guard let draggedIdString = items.first,
+                                          let draggedId = UUID(uuidString: draggedIdString),
+                                          let fromIndex = store.scenes.firstIndex(where: { $0.id == draggedId }),
+                                          fromIndex != index else { return false }
+                                    store.send(.moveScene(from: fromIndex, to: index))
+                                    return true
                                 }
+                                .contextMenu {
+                                    Button {
+                                        store.send(.selectScene(sceneItem))
+                                    } label: {
+                                        Label("Edit Scene", systemImage: "pencil")
+                                    }
 
-                                Divider()
+                                    Button {
+                                        store.send(.showVariationsForScene(sceneItem.id))
+                                    } label: {
+                                        Label("Variations", systemImage: "square.grid.2x2")
+                                    }
 
-                                Button(role: .destructive) {
-                                    store.send(.deleteScene(sceneItem.id))
-                                } label: {
-                                    Label("Delete Scene", systemImage: "trash")
+                                    Button {
+                                        store.send(.regenerateScene(sceneId: sceneItem.id))
+                                    } label: {
+                                        Label("Regenerate", systemImage: "arrow.clockwise")
+                                    }
+
+                                    Divider()
+
+                                    Button(role: .destructive) {
+                                        store.send(.deleteScene(sceneItem.id))
+                                    } label: {
+                                        Label("Delete Scene", systemImage: "trash")
+                                    }
                                 }
-                            }
+                        }
                     }
 
-                    // Add scene button at the end
+                    // Connector to add button
+                    if !store.scenes.isEmpty {
+                        connectorLine
+                    }
+
+                    // Dashed-border add scene card
                     addSceneButton
                 }
                 .padding(.horizontal, 20)
@@ -230,20 +250,33 @@ public struct StoryboardTimelineView: View {
         )
     }
 
+    /// Thin accent-colored connector line between scene cards.
+    private var connectorLine: some View {
+        Rectangle()
+            .fill(Color.accentColor.opacity(0.4))
+            .frame(width: 24, height: 2)
+    }
+
+    /// Dashed-border empty card at end: "Tap to create"
     private var addSceneButton: some View {
         Button {
             store.send(.addScene)
         } label: {
             VStack(spacing: 8) {
-                Image(systemName: "plus.circle")
+                Image(systemName: "plus")
                     .font(.title2)
-                Text("Add Scene")
+                Text("Tap to create")
                     .font(.caption)
             }
             .foregroundStyle(.secondary)
             .frame(width: 160, height: 160)
-            .background(.quaternary.opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .background(.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [8, 4]))
+                    .foregroundStyle(.secondary.opacity(0.5))
+            )
         }
         .buttonStyle(.plain)
     }
