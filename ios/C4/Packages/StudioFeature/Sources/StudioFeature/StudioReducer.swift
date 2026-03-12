@@ -96,7 +96,7 @@ public struct StudioReducer: Sendable {
         // Results
         case currentProjectLoaded(Result<[Project], Error>)
         case recentGenerationsLoaded(Result<[Asset], Error>)
-        case creditBalanceLoaded(Result<BalanceResponse, Error>)
+        case creditBalanceLoaded(Result<StudioBalanceResponse, Error>)
         case lastEditedItemsLoaded(Result<[LastEditedItem], Error>)
 
         // Navigation
@@ -164,7 +164,7 @@ public struct StudioReducer: Sendable {
                     let result = await Result {
                         try await apiClient.get(
                             "/api/credits/balance",
-                            as: BalanceResponse.self
+                            as: StudioBalanceResponse.self
                         )
                     }
                     await send(.creditBalanceLoaded(result))
@@ -255,6 +255,6 @@ public struct StudioReducer: Sendable {
 
 // MARK: - API Response Types
 
-struct BalanceResponse: Codable, Sendable {
+public struct StudioBalanceResponse: Codable, Sendable {
     let balance: Int
 }

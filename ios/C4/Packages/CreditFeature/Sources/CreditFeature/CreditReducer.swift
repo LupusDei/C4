@@ -152,8 +152,8 @@ public struct CreditReducer: Sendable {
 
 // MARK: - API Types
 
-struct BalanceResponse: Codable, Sendable {
-    let balance: Int
+public struct BalanceResponse: Codable, Sendable {
+    public let balance: Int
 }
 
 struct AllocateRequest: Codable, Sendable {

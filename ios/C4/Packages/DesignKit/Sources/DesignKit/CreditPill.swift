@@ -35,7 +35,7 @@ public struct CreditPill: View {
             HStack(spacing: 4) {
                 Image(systemName: "creditcard.fill")
                     .font(.caption2)
-                    .foregroundStyle(ThemeColors.accent)
+                    .foregroundStyle(.secondary)
 
                 if isAnimatingSpend {
                     spendAnimationContent
@@ -70,7 +70,7 @@ public struct CreditPill: View {
     @ViewBuilder
     private var pillBackground: some View {
         if reduceTransparency {
-            ThemeColors.surface
+            Color(.systemBackground)
         } else {
             Capsule().fill(.ultraThinMaterial)
         }

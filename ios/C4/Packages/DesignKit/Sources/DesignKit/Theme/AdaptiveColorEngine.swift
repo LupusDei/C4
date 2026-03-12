@@ -57,7 +57,7 @@ public final class AdaptiveColorEngine: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     /// Minimum WCAG AA luminance contrast ratio.
-    private static let minimumContrastRatio: CGFloat = 4.5
+    nonisolated(unsafe) private static let minimumContrastRatio: CGFloat = 4.5
 
     /// Default terracotta accent: #C2410C
     public static let defaultAccent = Color(red: 194/255, green: 65/255, blue: 12/255)

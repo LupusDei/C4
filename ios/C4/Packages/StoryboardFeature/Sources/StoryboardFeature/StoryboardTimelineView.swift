@@ -544,7 +544,7 @@ public struct StoryboardTimelineView: View {
 // MARK: - Scene Editor Sheet
 
 private struct SceneEditorSheet: View {
-    let scene: Scene
+    let scene: CoreKit.Scene
     let onSave: (String, String, Double) -> Void
 
     @State private var narrationText: String
@@ -552,7 +552,7 @@ private struct SceneEditorSheet: View {
     @State private var durationSeconds: Double
     @Environment(\.dismiss) private var dismiss
 
-    init(scene: Scene, onSave: @escaping (String, String, Double) -> Void) {
+    init(scene: CoreKit.Scene, onSave: @escaping (String, String, Double) -> Void) {
         self.scene = scene
         self.onSave = onSave
         _narrationText = State(initialValue: scene.narrationText)

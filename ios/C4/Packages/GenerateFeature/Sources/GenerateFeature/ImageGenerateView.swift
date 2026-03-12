@@ -7,42 +7,42 @@ import SwiftUI
 public struct ImageGenerateView: View {
     @Bindable var store: StoreOf<ImageGenerateReducer>
     @FocusState private var isPromptFocused: Bool
+    @State private var aspectRatioId: String = "1:1"
+    @State private var qualityId: String = "standard"
+    @State private var providerId: String = "auto"
 
     public init(store: StoreOf<ImageGenerateReducer>) {
         self.store = store
     }
 
     public var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(spacing: 20) {
-                    promptSection
-                    styleSection
-                        .activityResponsive(mode: store.activityMode)
-                    settingsSection
-                        .activityResponsive(mode: store.activityMode)
-                    costSection
-                    resultSection
-                }
-                .padding()
-                .padding(.bottom, 80) // Space for sticky CTA
+        ScrollView {
+            VStack(spacing: 20) {
+                promptSection
+                styleSection
+                    .activityResponsive()
+                settingsSection
+                    .activityResponsive()
+                costSection
+                resultSection
             }
-
-            // Sticky CTA replaces the old inline generate button
-            StickyCtaOverlay(
-                title: "Generate Image",
-                icon: "sparkles",
-                isLoading: store.isGenerating,
-                isEnabled: store.canGenerate,
-                action: { store.send(.generateTapped) }
-            )
+            .padding()
+            .padding(.bottom, 80) // Space for sticky CTA
         }
+        .stickyCtaOverlay(
+            title: "Generate Image",
+            isLoading: store.isGenerating,
+            isDisabled: !store.canGenerate,
+            action: { store.send(.generateTapped) }
+        )
         .overlay(alignment: .top) {
-            CompletionToast(
-                message: "Image generated successfully",
-                isPresented: store.showCompletionToast
-            )
-            .animation(.spring(duration: 0.4), value: store.showCompletionToast)
+            if store.showCompletionToast {
+                CompletionToast(
+                    message: "Image generated successfully",
+                    onView: { store.send(.dismissCompletionToast) },
+                    onDismiss: { store.send(.dismissCompletionToast) }
+                )
+            }
         }
         .navigationTitle("Generate Image")
         .toolbar {
@@ -56,6 +56,7 @@ public struct ImageGenerateView: View {
         }
         .warmBackground()
         .synthesisTheme()
+        .activityMode(store.activityMode)
         .sheet(isPresented: Binding(
             get: { store.stylePicker != nil },
             set: { if !$0 { store.send(.dismissStylePicker) } }
@@ -68,8 +69,28 @@ public struct ImageGenerateView: View {
             get: { store.isHistoryPresented },
             set: { store.send(.setHistoryPresented($0)) }
         )) {
-            if let historyStore = store.scope(state: \.history, action: \.history) {
+            if let historyStore = store.scope(state: \.history, action: \.history.presented) {
                 PromptHistoryView(store: historyStore)
+            }
+        }
+        .onAppear {
+            aspectRatioId = store.aspectRatio.rawValue
+            qualityId = store.qualityTier.rawValue
+            providerId = store.selectedProvider.rawValue
+        }
+        .onChange(of: aspectRatioId) { _, newValue in
+            if let ratio = ImageGenerateReducer.AspectRatio(rawValue: newValue) {
+                store.send(.setAspectRatio(ratio))
+            }
+        }
+        .onChange(of: qualityId) { _, newValue in
+            if let tier = ImageGenerateReducer.QualityTier(rawValue: newValue) {
+                store.send(.setQualityTier(tier))
+            }
+        }
+        .onChange(of: providerId) { _, newValue in
+            if let provider = ImageGenerateReducer.Provider(rawValue: newValue) {
+                store.send(.setProvider(provider))
             }
         }
     }
@@ -133,23 +154,29 @@ public struct ImageGenerateView: View {
     private var settingsSection: some View {
         VStack(spacing: 16) {
             AspectRatioPanelView(
-                options: ImageGenerateReducer.AspectRatio.allCases,
-                selection: store.aspectRatio,
-                onSelect: { store.send(.setAspectRatio($0)) }
+                options: AspectRatioOption.imageOptions,
+                selectedId: $aspectRatioId
             )
 
             QualityPanelView(
-                options: ImageGenerateReducer.QualityTier.allCases,
-                selection: store.qualityTier,
-                displayName: { $0.displayName },
-                onSelect: { store.send(.setQualityTier($0)) }
+                options: [
+                    QualityOption(id: "budget", name: "Budget", description: "Fast, lower detail", iconSystemName: "bolt.fill", creditCost: 2),
+                    QualityOption(id: "standard", name: "Standard", description: "Balanced quality", iconSystemName: "scalemass.fill", creditCost: 5),
+                    QualityOption(id: "premium", name: "Premium", description: "Maximum detail", iconSystemName: "crown.fill", creditCost: 10),
+                ],
+                selectedId: $qualityId
             )
 
             ProviderPanelView(
-                options: ImageGenerateReducer.Provider.allCases,
-                selection: store.selectedProvider,
-                displayName: { $0.displayName },
-                onSelect: { store.send(.setProvider($0)) }
+                options: ImageGenerateReducer.Provider.allCases.map { provider in
+                    ProviderOption(
+                        id: provider.rawValue,
+                        name: provider.displayName,
+                        initials: String(provider.displayName.prefix(2)).uppercased(),
+                        isRecommended: provider == .auto
+                    )
+                },
+                selectedId: $providerId
             )
         }
     }

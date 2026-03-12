@@ -14,6 +14,8 @@
 		A1000009229F0001000C4001 /* AssemblyFeature in Frameworks */ = {isa = PBXBuildFile; productRef = A100000A229F0001000C4001 /* AssemblyFeature */; };
 		A100000B229F0001000C4001 /* CreditFeature in Frameworks */ = {isa = PBXBuildFile; productRef = A100000C229F0001000C4001 /* CreditFeature */; };
 		A100000D229F0001000C4001 /* StoryboardFeature in Frameworks */ = {isa = PBXBuildFile; productRef = A100000E229F0001000C4001 /* StoryboardFeature */; };
+		A100000F229F0001000C4001 /* StudioFeature in Frameworks */ = {isa = PBXBuildFile; productRef = A1000010229F0001000C4001 /* StudioFeature */; };
+		A1000011229F0001000C4001 /* DesignKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1000012229F0001000C4001 /* DesignKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -21,23 +23,21 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		A1200001229F0001000C4001 /* Exceptions for "C4" folder in "C4" target */ = {
+		A1200001229F0001000C4001 /* Exceptions for "C4App" folder in "C4" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Package.swift,
-				Package.resolved,
 			);
 			target = A1300001229F0001000C4001 /* C4 */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		A1400001229F0001000C4001 /* C4 */ = {
+		A1400001229F0001000C4001 /* C4App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				A1200001229F0001000C4001 /* Exceptions for "C4" folder in "C4" target */,
+				A1200001229F0001000C4001 /* Exceptions for "C4App" folder in "C4" target */,
 			);
-			path = C4;
+			path = C4App;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -54,6 +54,8 @@
 				A1000009229F0001000C4001 /* AssemblyFeature in Frameworks */,
 				A100000B229F0001000C4001 /* CreditFeature in Frameworks */,
 				A100000D229F0001000C4001 /* StoryboardFeature in Frameworks */,
+				A100000F229F0001000C4001 /* StudioFeature in Frameworks */,
+				A1000011229F0001000C4001 /* DesignKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -103,6 +105,8 @@
 				A100000A229F0001000C4001 /* AssemblyFeature */,
 				A100000C229F0001000C4001 /* CreditFeature */,
 				A100000E229F0001000C4001 /* StoryboardFeature */,
+				A1000010229F0001000C4001 /* StudioFeature */,
+				A1000012229F0001000C4001 /* DesignKit */,
 			);
 			productName = C4;
 			productReference = A1100001229F0001000C4001 /* C4.app */;
@@ -294,7 +298,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"C4/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"C4App/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -322,7 +326,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"C4/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"C4App/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -346,20 +350,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A1B00001229F0001000C4001 /* Build configuration list for PBXProject "C4" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A1D00001229F0001000C4001 /* Debug */,
-				A1D00002229F0001000C4001 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		A1700001229F0001000C4001 /* Build configuration list for PBXNativeTarget "C4" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A1E00001229F0001000C4001 /* Debug */,
 				A1E00002229F0001000C4001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1B00001229F0001000C4001 /* Build configuration list for PBXProject "C4" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1D00001229F0001000C4001 /* Debug */,
+				A1D00002229F0001000C4001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -402,8 +406,15 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = StoryboardFeature;
 		};
+		A1000010229F0001000C4001 /* StudioFeature */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = StudioFeature;
+		};
+		A1000012229F0001000C4001 /* DesignKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DesignKit;
+		};
 /* End XCSwiftPackageProductDependency section */
-
 	};
 	rootObject = A1A00001229F0001000C4001 /* Project object */;
 }

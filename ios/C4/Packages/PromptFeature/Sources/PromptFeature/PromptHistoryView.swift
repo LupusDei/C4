@@ -194,7 +194,7 @@ struct PromptHistoryRow: View {
                     } label: {
                         Label("Remix", systemImage: "arrow.triangle.2.circlepath")
                             .font(.caption)
-                            .foregroundStyle(.accent)
+                            .foregroundColor(.accentColor)
                     }
                     .buttonStyle(.plain)
                 }

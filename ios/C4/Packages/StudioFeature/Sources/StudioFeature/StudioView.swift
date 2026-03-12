@@ -204,7 +204,7 @@ public struct StudioView: View {
 
                 Image(systemName: "creditcard.fill")
                     .font(.title)
-                    .foregroundStyle(.accentColor.opacity(0.6))
+                    .foregroundStyle(Color.accentColor.opacity(0.6))
             }
             .padding(16)
             .background(.background)
@@ -245,7 +245,7 @@ public struct StudioView: View {
             HStack(spacing: 12) {
                 Image(systemName: lastEditedIcon(item.type))
                     .font(.title3)
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
                     .frame(width: 28)
 
                 VStack(alignment: .leading, spacing: 2) {

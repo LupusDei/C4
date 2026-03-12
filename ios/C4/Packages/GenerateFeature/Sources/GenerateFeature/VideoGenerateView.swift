@@ -8,46 +8,48 @@ import SwiftUI
 public struct VideoGenerateView: View {
     @Bindable var store: StoreOf<VideoGenerateReducer>
     @FocusState private var isPromptFocused: Bool
+    @State private var aspectRatioId: String = "16:9"
+    @State private var qualityId: String = "standard"
+    @State private var providerId: String = "auto"
+    @State private var resolutionId: String = "720p"
+    @State private var durationValue: Double = 5.0
 
     public init(store: StoreOf<VideoGenerateReducer>) {
         self.store = store
     }
 
     public var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(spacing: 20) {
-                    modeSection
-                    promptSection
-                    styleSection
-                        .activityResponsive(mode: store.activityMode)
-                    if store.mode == .imageToVideo {
-                        sourceAssetSection
-                    }
-                    settingsSection
-                        .activityResponsive(mode: store.activityMode)
-                    costSection
-                    resultSection
+        ScrollView {
+            VStack(spacing: 20) {
+                modeSection
+                promptSection
+                styleSection
+                    .activityResponsive()
+                if store.mode == .imageToVideo {
+                    sourceAssetSection
                 }
-                .padding()
-                .padding(.bottom, 80) // Space for sticky CTA
+                settingsSection
+                    .activityResponsive()
+                costSection
+                resultSection
             }
-
-            // Sticky CTA replaces the old inline generate button
-            StickyCtaOverlay(
-                title: "Generate Video",
-                icon: "film",
-                isLoading: store.isGenerating,
-                isEnabled: store.canGenerate,
-                action: { store.send(.generateTapped) }
-            )
+            .padding()
+            .padding(.bottom, 80) // Space for sticky CTA
         }
+        .stickyCtaOverlay(
+            title: "Generate Video",
+            isLoading: store.isGenerating,
+            isDisabled: !store.canGenerate,
+            action: { store.send(.generateTapped) }
+        )
         .overlay(alignment: .top) {
-            CompletionToast(
-                message: "Video generated successfully",
-                isPresented: store.showCompletionToast
-            )
-            .animation(.spring(duration: 0.4), value: store.showCompletionToast)
+            if store.showCompletionToast {
+                CompletionToast(
+                    message: "Video generated successfully",
+                    onView: { store.send(.dismissCompletionToast) },
+                    onDismiss: { store.send(.dismissCompletionToast) }
+                )
+            }
         }
         .navigationTitle("Generate Video")
         .toolbar {
@@ -61,6 +63,7 @@ public struct VideoGenerateView: View {
         }
         .warmBackground()
         .synthesisTheme()
+        .activityMode(store.activityMode)
         .sheet(isPresented: Binding(
             get: { store.stylePicker != nil },
             set: { if !$0 { store.send(.dismissStylePicker) } }
@@ -73,9 +76,39 @@ public struct VideoGenerateView: View {
             get: { store.isHistoryPresented },
             set: { store.send(.setHistoryPresented($0)) }
         )) {
-            if let historyStore = store.scope(state: \.history, action: \.history) {
+            if let historyStore = store.scope(state: \.history, action: \.history.presented) {
                 PromptHistoryView(store: historyStore)
             }
+        }
+        .onAppear {
+            aspectRatioId = store.aspectRatio.rawValue
+            qualityId = store.qualityTier.rawValue
+            providerId = store.selectedProvider.rawValue
+            resolutionId = store.resolution.rawValue
+            durationValue = Double(store.duration)
+        }
+        .onChange(of: aspectRatioId) { _, newValue in
+            if let ratio = VideoGenerateReducer.AspectRatio(rawValue: newValue) {
+                store.send(.setAspectRatio(ratio))
+            }
+        }
+        .onChange(of: qualityId) { _, newValue in
+            if let tier = VideoGenerateReducer.QualityTier(rawValue: newValue) {
+                store.send(.setQualityTier(tier))
+            }
+        }
+        .onChange(of: providerId) { _, newValue in
+            if let provider = VideoGenerateReducer.Provider(rawValue: newValue) {
+                store.send(.setProvider(provider))
+            }
+        }
+        .onChange(of: resolutionId) { _, newValue in
+            if let res = VideoGenerateReducer.Resolution(rawValue: newValue) {
+                store.send(.setResolution(res))
+            }
+        }
+        .onChange(of: durationValue) { _, newValue in
+            store.send(.setDuration(Int(newValue)))
         }
     }
 
@@ -184,37 +217,44 @@ public struct VideoGenerateView: View {
 
     private var settingsSection: some View {
         VStack(spacing: 16) {
-            DurationStepperView(
-                duration: store.duration,
-                onSet: { store.send(.setDuration($0)) }
-            )
+            DurationStepperView(value: $durationValue)
 
             AspectRatioPanelView(
-                options: VideoGenerateReducer.AspectRatio.allCases,
-                selection: store.aspectRatio,
-                onSelect: { store.send(.setAspectRatio($0)) }
+                options: AspectRatioOption.allOptions,
+                selectedId: $aspectRatioId
             )
 
-            PanelPicker(
-                "Resolution",
-                options: VideoGenerateReducer.Resolution.allCases,
-                selection: store.resolution,
-                label: { $0.displayName },
-                onSelect: { store.send(.setResolution($0)) }
-            )
+            // Resolution picker as simple segmented control
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Resolution")
+                    .font(.subheadline.weight(.medium))
+                Picker("Resolution", selection: $resolutionId) {
+                    ForEach(VideoGenerateReducer.Resolution.allCases, id: \.rawValue) { res in
+                        Text(res.displayName).tag(res.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
 
             QualityPanelView(
-                options: VideoGenerateReducer.QualityTier.allCases,
-                selection: store.qualityTier,
-                displayName: { $0.displayName },
-                onSelect: { store.send(.setQualityTier($0)) }
+                options: [
+                    QualityOption(id: "budget", name: "Budget", description: "Fast, lower detail", iconSystemName: "bolt.fill", creditCost: 3),
+                    QualityOption(id: "standard", name: "Standard", description: "Balanced quality", iconSystemName: "scalemass.fill", creditCost: 8),
+                    QualityOption(id: "premium", name: "Premium", description: "Maximum detail", iconSystemName: "crown.fill", creditCost: 15),
+                ],
+                selectedId: $qualityId
             )
 
             ProviderPanelView(
-                options: VideoGenerateReducer.Provider.allCases,
-                selection: store.selectedProvider,
-                displayName: { $0.displayName },
-                onSelect: { store.send(.setProvider($0)) }
+                options: VideoGenerateReducer.Provider.allCases.map { provider in
+                    ProviderOption(
+                        id: provider.rawValue,
+                        name: provider.displayName,
+                        initials: String(provider.displayName.prefix(2)).uppercased(),
+                        isRecommended: provider == .auto
+                    )
+                },
+                selectedId: $providerId
             )
         }
     }

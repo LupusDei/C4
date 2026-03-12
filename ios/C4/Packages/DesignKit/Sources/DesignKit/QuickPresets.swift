@@ -47,11 +47,11 @@ public struct QuickPresets: View {
                         .font(.caption)
                 }
                 Text(preset.label)
-                    .font(ThemeTypography.caption)
+                    .font(.caption)
             }
             .padding(.horizontal, ThemeSpacing.sm)
             .padding(.vertical, ThemeSpacing.xs)
-            .background(ThemeColors.surface)
+            .background(.ultraThinMaterial)
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)

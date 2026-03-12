@@ -84,10 +84,10 @@ public struct CompletionToast: View {
             }) {
                 Text("View")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(.accentColor.opacity(0.12))
+                    .background(Color.accentColor.opacity(0.12))
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)

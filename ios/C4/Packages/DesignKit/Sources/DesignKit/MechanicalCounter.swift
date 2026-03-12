@@ -78,7 +78,7 @@ private struct RollingDigitModifier: ViewModifier, Animatable {
     var digit: Double
     let font: Font
 
-    var animatableData: Double {
+    nonisolated var animatableData: Double {
         get { digit }
         set { digit = newValue }
     }

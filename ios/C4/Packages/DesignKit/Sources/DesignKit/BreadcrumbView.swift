@@ -24,7 +24,9 @@ public struct BreadcrumbView: View {
     public var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                ForEach(Array(crumbs.enumerated()), id: \.offset) { index, crumb in
+                ForEach(crumbs) { crumb in
+                    let index = crumbs.firstIndex(where: { $0.id == crumb.id }) ?? 0
+
                     if index > 0 {
                         Text("\u{203A}")
                             .font(.caption)
@@ -36,7 +38,7 @@ public struct BreadcrumbView: View {
                     if isCurrent {
                         Text(crumb.label)
                             .font(.caption.weight(.medium))
-                            .foregroundStyle(.accent)
+                            .foregroundColor(.accentColor)
                     } else {
                         Button {
                             crumb.action()
@@ -56,7 +58,8 @@ public struct BreadcrumbView: View {
 }
 
 /// A single breadcrumb segment with a label and navigation action.
-public struct Breadcrumb: Sendable {
+public struct Breadcrumb: Identifiable, Sendable {
+    public let id: String
     public let label: String
     public let action: @Sendable () -> Void
 
@@ -66,6 +69,7 @@ public struct Breadcrumb: Sendable {
     ///   - action: The action to perform when tapped. For the last (current) segment,
     ///     this action is not called since it represents the current location.
     public init(_ label: String, action: @escaping @Sendable () -> Void = {}) {
+        self.id = label
         self.label = label
         self.action = action
     }
