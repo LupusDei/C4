@@ -7,12 +7,14 @@ let package = Package(
     platforms: [.iOS(.v18), .macOS(.v14)],
     products: [
         .library(name: "CoreKit", targets: ["CoreKit"]),
+        .library(name: "DesignKit", targets: ["DesignKit"]),
         .library(name: "PromptFeature", targets: ["PromptFeature"]),
         .library(name: "ProjectFeature", targets: ["ProjectFeature"]),
         .library(name: "GenerateFeature", targets: ["GenerateFeature"]),
         .library(name: "AssemblyFeature", targets: ["AssemblyFeature"]),
         .library(name: "CreditFeature", targets: ["CreditFeature"]),
         .library(name: "StoryboardFeature", targets: ["StoryboardFeature"]),
+        .library(name: "StudioFeature", targets: ["StudioFeature"]),
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.17.0"),
@@ -29,6 +31,10 @@ let package = Package(
             name: "CoreKitTests",
             dependencies: ["CoreKit"],
             path: "Packages/CoreKit/Tests/CoreKitTests"
+        ),
+        .target(
+            name: "DesignKit",
+            path: "Packages/DesignKit/Sources/DesignKit"
         ),
         .target(
             name: "PromptFeature",
@@ -111,6 +117,19 @@ let package = Package(
             name: "CreditFeatureTests",
             dependencies: ["CreditFeature"],
             path: "Packages/CreditFeature/Tests/CreditFeatureTests"
+        ),
+        .target(
+            name: "StudioFeature",
+            dependencies: [
+                "CoreKit",
+                .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
+            ],
+            path: "Packages/StudioFeature/Sources/StudioFeature"
+        ),
+        .testTarget(
+            name: "StudioFeatureTests",
+            dependencies: ["StudioFeature"],
+            path: "Packages/StudioFeature/Tests/StudioFeatureTests"
         ),
     ]
 )

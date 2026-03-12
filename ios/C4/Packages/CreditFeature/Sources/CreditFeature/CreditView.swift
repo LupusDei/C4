@@ -122,11 +122,17 @@ public struct CreditView: View {
             Spacer()
 
             Text(transactionAmountText(transaction))
-                .font(.body.monospacedDigit())
+                .font(.system(.body, design: .monospaced))
                 .fontWeight(.medium)
                 .foregroundStyle(transactionColor(transaction.type))
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
+        .overlay(alignment: .bottom) {
+            // Hairline separator (#E7E5E4)
+            Rectangle()
+                .fill(Color(red: 231/255, green: 229/255, blue: 228/255))
+                .frame(height: 0.5)
+        }
     }
 
     private func transactionIcon(_ type: CreditTransactionType) -> some View {
@@ -146,9 +152,9 @@ public struct CreditView: View {
 
     private func transactionColor(_ type: CreditTransactionType) -> Color {
         switch type {
-        case .debit: .red
-        case .credit: .green
-        case .refund: .orange
+        case .debit: Color(red: 120/255, green: 113/255, blue: 108/255) // warm gray #78716C
+        case .credit: Color(red: 101/255, green: 163/255, blue: 13/255) // sage green #65A30D
+        case .refund: Color(red: 101/255, green: 163/255, blue: 13/255) // sage green #65A30D
         }
     }
 

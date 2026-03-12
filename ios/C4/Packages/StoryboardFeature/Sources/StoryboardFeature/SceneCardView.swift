@@ -17,13 +17,13 @@ struct SceneCardView: View {
             durationRow
             statusOverlay
         }
-        .frame(width: 240)
+        .frame(width: 300)
         .padding(12)
         .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(borderColor, lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(red: 41/255, green: 37/255, blue: 36/255), lineWidth: 1) // #292524 film-frame border
         )
         .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
         .contextMenu {
@@ -45,9 +45,9 @@ struct SceneCardView: View {
 
     private var headerRow: some View {
         HStack {
+            // Scene number in serif type, top-left
             Text("Scene \(scene.orderIndex + 1)")
-                .font(.headline)
-                .fontDesign(.rounded)
+                .font(.system(.headline, design: .serif))
 
             Spacer()
 
@@ -81,7 +81,7 @@ struct SceneCardView: View {
         }
     }
 
-    // MARK: - Narration
+    // MARK: - Narration (New York Italic)
 
     private var narrationSection: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -91,13 +91,14 @@ struct SceneCardView: View {
                 .textCase(.uppercase)
 
             Text(scene.narrationText)
-                .font(.caption)
+                .font(.system(.caption, design: .serif))
+                .italic()
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
         }
     }
 
-    // MARK: - Visual Prompt
+    // MARK: - Visual Prompt (regular weight)
 
     private var promptSection: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -110,7 +111,6 @@ struct SceneCardView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
-                .italic()
         }
     }
 
@@ -184,17 +184,6 @@ struct SceneCardView: View {
 
         default:
             EmptyView()
-        }
-    }
-
-    // MARK: - Border Color
-
-    private var borderColor: Color {
-        switch generationStatus {
-        case .idle: .gray.opacity(0.3)
-        case .generating: .accentColor.opacity(0.5)
-        case .complete: .green.opacity(0.5)
-        case .failed: .red.opacity(0.5)
         }
     }
 }
