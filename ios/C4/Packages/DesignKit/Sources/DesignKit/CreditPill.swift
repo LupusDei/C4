@@ -7,6 +7,8 @@ import SwiftUI
 /// - SF Mono digit display
 /// - Tappable to open credit detail
 /// - Spend animation: expands, shows "-N" with strikethrough, contracts to new balance
+/// - Reduce Transparency support (C4-004.12.2)
+/// - VoiceOver accessibility label (C4-004.12.4)
 ///
 /// Usage:
 /// ```swift
@@ -20,6 +22,7 @@ public struct CreditPill: View {
     @State private var spendAmount: Int = 0
     @State private var displayBalance: Int
     @State private var pillWidth: CGFloat = 0
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     public init(balance: Int, onTap: @escaping () -> Void) {
         self.balance = balance
@@ -30,9 +33,9 @@ public struct CreditPill: View {
     public var body: some View {
         Button(action: onTap) {
             HStack(spacing: 4) {
-                Image(systemName: "creditcard")
+                Image(systemName: "creditcard.fill")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ThemeColors.accent)
 
                 if isAnimatingSpend {
                     spendAnimationContent
@@ -46,11 +49,13 @@ public struct CreditPill: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(.ultraThinMaterial)
+            .background(pillBackground)
             .clipShape(Capsule())
             .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Credit balance: \(displayBalance)")
         .onChange(of: balance) { oldValue, newValue in
             if newValue < oldValue {
                 animateSpend(from: oldValue, to: newValue)
@@ -59,6 +64,15 @@ public struct CreditPill: View {
                     displayBalance = newValue
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var pillBackground: some View {
+        if reduceTransparency {
+            ThemeColors.surface
+        } else {
+            Capsule().fill(.ultraThinMaterial)
         }
     }
 
@@ -84,7 +98,6 @@ public struct CreditPill: View {
             isAnimatingSpend = true
         }
 
-        // After showing the spend amount, contract to new balance
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 displayBalance = newValue

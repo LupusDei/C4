@@ -24,6 +24,11 @@ let package = Package(
             name: "DesignKit",
             path: "Packages/DesignKit/Sources/DesignKit"
         ),
+        .testTarget(
+            name: "DesignKitTests",
+            dependencies: ["DesignKit"],
+            path: "Packages/DesignKit/Tests/DesignKitTests"
+        ),
         .target(
             name: "CoreKit",
             dependencies: [
@@ -35,10 +40,6 @@ let package = Package(
             name: "CoreKitTests",
             dependencies: ["CoreKit"],
             path: "Packages/CoreKit/Tests/CoreKitTests"
-        ),
-        .target(
-            name: "DesignKit",
-            path: "Packages/DesignKit/Sources/DesignKit"
         ),
         .target(
             name: "PromptFeature",
