@@ -1,21 +1,28 @@
 # C4 — Content Creation Coordinator
 
-AI-powered content creation platform with multi-provider image generation, video generation, video extension, and video assembly. Node.js backend + iOS app.
+AI-powered content creation platform with multi-provider image generation, video generation, video extension, video assembly, and an AI creative director. Node.js backend + iOS app.
 
 ## Architecture
 
 ```
-ios/C4/             SwiftUI + TCA app (5 SPM packages)
-backend/            Fastify API server (plain JS, ESM)
+ios/
+  C4.xcodeproj/      Xcode project (open this to build & run)
+  C4/                SwiftUI + TCA app (7 SPM packages)
+    C4App.swift      App entry point
+    Package.swift    SPM package definitions
+    Packages/        Feature packages (CoreKit, GenerateFeature, etc.)
+backend/             Fastify API server (plain JS, ESM)
   src/
-    routes/         REST endpoints
-    services/       AI provider integrations
-    workers/        BullMQ background jobs
-    plugins/        Fastify plugins (db, redis, ws, storage)
-    config/         Credit cost matrix
-    lib/            Retry utility
-    db/migrations/  PostgreSQL schema
-  tests/            Integration tests
+    routes/          REST endpoints
+    services/        AI provider integrations (prompt-enhancer.js for Creative Director)
+    workers/         BullMQ background jobs
+    plugins/         Fastify plugins (db, redis, ws, storage)
+    config/          Credit cost matrix
+    lib/             Retry utility
+    db/migrations/   PostgreSQL schema
+    db/seeds/        Style preset seed data
+  tests/             Integration tests
+docs/                Setup guides
 ```
 
 ## Prerequisites
@@ -51,6 +58,7 @@ DATABASE_URL=postgresql://localhost:5432/c4
 REDIS_URL=redis://localhost:6379
 
 # AI providers (add whichever you have)
+ANTHROPIC_API_KEY=sk-ant-...   # Creative Director (prompt enhance, remix, style extract)
 OPENAI_API_KEY=sk-...          # GPT Image 1.5
 XAI_API_KEY=xai-...            # Grok Imagine (image + video + extend)
 FAL_KEY=...                     # FLUX, Kling, Hailuo, Nano Banana
@@ -80,13 +88,21 @@ createdb c4
 npm run migrate
 ```
 
-### 4. Start Redis
+### 4. Seed style presets
+
+```bash
+npx knex seed:run --knexfile knexfile.js
+```
+
+This loads 32 curated visual style presets across 6 categories (cinematic, photography, illustration, digital art, retro, abstract). The seed is idempotent.
+
+### 5. Start Redis
 
 ```bash
 redis-server
 ```
 
-### 5. Start the server
+### 6. Start the server
 
 ```bash
 # Development (auto-restart on changes)
@@ -98,7 +114,7 @@ npm start
 
 Server runs at `http://localhost:3000`. API docs at `http://localhost:3000/docs`.
 
-### 6. Run tests
+### 7. Run tests
 
 ```bash
 npm test
@@ -106,26 +122,25 @@ npm test
 
 ## iOS App Setup
 
-The iOS app is a pure SPM project at `ios/C4/`. It needs an Xcode project wrapper to build.
-
 ### 1. Open in Xcode
 
 ```bash
-cd ios/C4
-open Package.swift
+open ios/C4.xcodeproj
 ```
 
-Or create a new Xcode iOS app project and add the local packages as dependencies.
+Select a simulator (iPhone 16 etc.) and hit Cmd+R.
 
 ### 2. Build targets
 
-The app is organized as 5 SPM packages:
+The app is organized as 7 SPM packages:
 
 | Package | Purpose |
 |---------|---------|
 | **CoreKit** | API client, WebSocket client, data models |
+| **PromptFeature** | Prompt enhancer, style picker gallery, prompt history |
 | **GenerateFeature** | Image/video generation + video extend UI |
-| **ProjectFeature** | Project list, detail, asset preview |
+| **ProjectFeature** | Project list, detail, asset preview, style lock |
+| **StoryboardFeature** | Scene-based storyboard editing |
 | **CreditFeature** | Credit balance, history, allocation |
 | **AssemblyFeature** | Multi-clip video assembly |
 
@@ -134,7 +149,7 @@ The app is organized as 5 SPM packages:
 ### 3. Requirements
 
 - iOS 18+ / macOS 14+
-- Swift 6
+- Swift 6, Xcode 16+
 - The backend must be running at `localhost:3000` (hardcoded in `APIClient`)
 
 ## Usage
@@ -148,10 +163,11 @@ The app is organized as 5 SPM packages:
 ### Generating images
 
 1. Go to **Generate > Generate Image**
-2. Write a prompt
-3. Pick quality tier (budget/standard/premium), provider, and aspect ratio
-4. Select a project to save to
-5. Tap **Generate Image** — progress streams via WebSocket
+2. Write a prompt (or tap **Enhance** to let Claude rewrite it into a production-quality prompt)
+3. Optionally pick a style preset from the gallery to apply a visual style
+4. Pick quality tier (budget/standard/premium), provider, and aspect ratio
+5. Select a project to save to
+6. Tap **Generate Image** — progress streams via WebSocket
 
 ### Generating video
 
@@ -163,6 +179,18 @@ The app is organized as 5 SPM packages:
 ### Extending video
 
 From a project's asset detail view, tap **Extend** on any completed video. Grok Imagine chains continuations from the final frame, up to 30 seconds total.
+
+### Prompt enhancement & remix
+
+The AI Creative Director helps you write better prompts:
+
+1. **Enhance**: Type a rough idea ("dog on a skateboard"), tap Enhance — Claude rewrites it with lighting, composition, mood, and provider-specific optimizations. See the before/after comparison.
+2. **Style presets**: Browse 32 curated styles (cinematic, photography, illustration, etc.) and apply them with one tap. Create your own custom styles.
+3. **Remix**: Open Prompt History, find a successful prompt, tap Remix — Claude creates a fresh variation. Great for building content series.
+4. **Save as Style**: From any asset preview, extract the visual style and save it as a reusable preset.
+5. **Project style lock**: Set a default style per project so all generations maintain visual consistency.
+
+Requires `ANTHROPIC_API_KEY` for enhance, remix, and style extraction. Style presets and prompt history work without it.
 
 ### Assembling video
 
@@ -239,6 +267,43 @@ Add more credits from the **Credits** tab. Failed generations are automatically 
 | `GET` | `/api/credits/history` | Get transaction history |
 | `POST` | `/api/credits/allocate` | Add credits |
 
+### Prompts (Creative Director)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/prompts/enhance` | Enhance a prompt with AI creative direction |
+| `POST` | `/api/prompts/remix` | Create a variation of a prompt |
+| `GET` | `/api/prompts/history` | List prompt history (paginated, searchable) |
+| `GET` | `/api/prompts/history/:id` | Get a single prompt history entry |
+| `DELETE` | `/api/prompts/history/:id` | Delete a prompt history entry |
+
+### Styles
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/styles` | List style presets (filter by `?category=`) |
+| `GET` | `/api/styles/:id` | Get a style preset |
+| `POST` | `/api/styles` | Create a custom style preset |
+| `PUT` | `/api/styles/:id` | Update a custom style preset |
+| `DELETE` | `/api/styles/:id` | Delete a custom style preset |
+| `POST` | `/api/styles/extract` | Extract style from a prompt via Claude |
+
+### Storyboards
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/projects/:id/storyboards` | Create a storyboard |
+| `GET` | `/api/projects/:id/storyboards` | List storyboards for a project |
+| `GET` | `/api/storyboards/:id` | Get a storyboard |
+| `PUT` | `/api/storyboards/:id` | Update a storyboard |
+| `DELETE` | `/api/storyboards/:id` | Delete a storyboard |
+| `POST` | `/api/storyboards/:id/scenes` | Add a scene |
+| `GET` | `/api/storyboards/:id/scenes` | List scenes |
+| `PUT` | `/api/scenes/:id` | Update a scene |
+| `DELETE` | `/api/scenes/:id` | Delete a scene |
+| `PATCH` | `/api/storyboards/:id/scenes/reorder` | Reorder scenes |
+| `POST` | `/api/storyboards/:id/split` | Split a script into scenes via AI |
+
 ### WebSocket
 
 Connect to `ws://localhost:3000/ws` to receive real-time generation progress:
@@ -259,12 +324,13 @@ createdb c4 2>/dev/null
 # Terminal 2: Start backend
 cd backend
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your API keys (at minimum ANTHROPIC_API_KEY for Creative Director)
 npm install
 npm run migrate
+npx knex seed:run --knexfile knexfile.js
 npm run dev
 
 # Terminal 3: Open iOS app in Xcode
-cd ios/C4
-open Package.swift
+open ios/C4.xcodeproj
+# Select a simulator and hit Cmd+R
 ```
