@@ -12,6 +12,7 @@ struct C4App: App {
     @State private var creditBalance: Int = 0
     @State private var showCreditSheet = false
     @State private var selectedTab: AppTab = .studio
+    @State private var showCommandPalette = false
 
     var body: some Scene {
         WindowGroup {
@@ -54,6 +55,31 @@ struct C4App: App {
                 }
                 .padding(.top, 4)
                 .padding(.trailing, 16)
+
+                // Command palette trigger: double-tap top safe area
+                Color.clear
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2) {
+                        withAnimation(.spring(duration: 0.35)) {
+                            showCommandPalette.toggle()
+                        }
+                    }
+                    .allowsHitTesting(true)
+
+                // Command palette overlay
+                if showCommandPalette {
+                    Color.black.opacity(0.2)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation(.spring(duration: 0.35)) {
+                                showCommandPalette = false
+                            }
+                        }
+
+                    CommandPaletteView(isPresented: $showCommandPalette)
+                        .padding(.top, 60)
+                }
             }
             .sheet(isPresented: $showCreditSheet) {
                 NavigationStack {

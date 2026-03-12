@@ -13,44 +13,45 @@ public struct ImageGenerateView: View {
     }
 
     public var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(spacing: 20) {
+                    promptSection
+                    styleSection
+                        .activityResponsive(mode: store.activityMode)
                     settingsSection
+                        .activityResponsive(mode: store.activityMode)
                     costSection
                     resultSection
                 }
                 .padding()
-                .padding(.bottom, 120) // space for creative stage
+                .padding(.bottom, 80) // Space for sticky CTA
             }
-            .navigationTitle("Generate Image")
 
-            // Creative Stage at bottom
-            VStack(spacing: 0) {
-                Spacer()
-
-                if isPromptFocused {
-                    ContextualToolbar(actions: .init(
-                        onStyle: { store.send(.styleButtonTapped) },
-                        onHistory: { store.send(.historyTapped) },
-                        onEnhance: { store.send(.promptEnhancer(.enhanceTapped)) },
-                        onCamera: nil
-                    ))
-                    .padding(.bottom, ThemeSpacing.xs)
+            // Sticky CTA replaces the old inline generate button
+            StickyCtaOverlay(
+                title: "Generate Image",
+                icon: "sparkles",
+                isLoading: store.isGenerating,
+                isEnabled: store.canGenerate,
+                action: { store.send(.generateTapped) }
+            )
+        }
+        .overlay(alignment: .top) {
+            CompletionToast(
+                message: "Image generated successfully",
+                isPresented: store.showCompletionToast
+            )
+            .animation(.spring(duration: 0.4), value: store.showCompletionToast)
+        }
+        .navigationTitle("Generate Image")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    store.send(.historyTapped)
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
                 }
-
-                CreativeStageView(
-                    text: Binding(
-                        get: { store.prompt },
-                        set: { store.send(.setPrompt($0)) }
-                    ),
-                    styleName: store.selectedStyle?.name,
-                    wordCount: store.prompt
-                        .split(separator: " ")
-                        .count,
-                    onGenerate: { store.send(.generateTapped) }
-                )
-                .focused($isPromptFocused)
             }
         }
         .warmBackground()
@@ -73,40 +74,83 @@ public struct ImageGenerateView: View {
         }
     }
 
-    // MARK: - Settings
+    // MARK: - Prompt
+
+    private var promptSection: some View {
+        PromptEnhancerView(
+            store: store.scope(state: \.promptEnhancer, action: \.promptEnhancer)
+        )
+        .onTapGesture {
+            store.send(.setActivityMode(.composing))
+        }
+    }
+
+    // MARK: - Style
+
+    private var styleSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Style")
+                .font(.headline)
+
+            Button {
+                store.send(.styleButtonTapped)
+            } label: {
+                HStack {
+                    if let style = store.selectedStyle {
+                        Image(systemName: "paintpalette.fill")
+                            .foregroundStyle(Color.accentColor)
+                        Text(style.name)
+                            .font(.subheadline.weight(.medium))
+                        Spacer()
+                        Button {
+                            store.send(.setDefaultStyle(nil))
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Image(systemName: "paintpalette")
+                            .foregroundStyle(.secondary)
+                        Text("Choose a style...")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .padding()
+                .background(.quaternary)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Settings (Panel Pickers)
 
     private var settingsSection: some View {
-        ThemeCard {
-            VStack(spacing: 12) {
-                Picker("Quality", selection: Binding(
-                    get: { store.qualityTier },
-                    set: { store.send(.setQualityTier($0)) }
-                )) {
-                    ForEach(ImageGenerateReducer.QualityTier.allCases, id: \.self) { tier in
-                        Text(tier.displayName).tag(tier)
-                    }
-                }
+        VStack(spacing: 16) {
+            AspectRatioPanelView(
+                options: ImageGenerateReducer.AspectRatio.allCases,
+                selection: store.aspectRatio,
+                onSelect: { store.send(.setAspectRatio($0)) }
+            )
 
-                Picker("Provider", selection: Binding(
-                    get: { store.selectedProvider },
-                    set: { store.send(.setProvider($0)) }
-                )) {
-                    ForEach(ImageGenerateReducer.Provider.allCases, id: \.self) { provider in
-                        Text(provider.displayName).tag(provider)
-                    }
-                }
+            QualityPanelView(
+                options: ImageGenerateReducer.QualityTier.allCases,
+                selection: store.qualityTier,
+                displayName: { $0.displayName },
+                onSelect: { store.send(.setQualityTier($0)) }
+            )
 
-                Picker("Aspect Ratio", selection: Binding(
-                    get: { store.aspectRatio },
-                    set: { store.send(.setAspectRatio($0)) }
-                )) {
-                    ForEach(ImageGenerateReducer.AspectRatio.allCases, id: \.self) { ratio in
-                        Text(ratio.rawValue).tag(ratio)
-                    }
-                }
-            }
-            .pickerStyle(.menu)
-            .padding(ThemeSpacing.md)
+            ProviderPanelView(
+                options: ImageGenerateReducer.Provider.allCases,
+                selection: store.selectedProvider,
+                displayName: { $0.displayName },
+                onSelect: { store.send(.setProvider($0)) }
+            )
         }
     }
 
@@ -155,44 +199,11 @@ public struct ImageGenerateView: View {
             .padding(.top, 20)
 
         case .complete(let asset):
-            ThemeCard {
-                VStack(spacing: 12) {
-                    if let _ = asset.filePath {
-                        AsyncImage(url: URL(string: "http://localhost:3000/api/assets/\(asset.id)/file")) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                            case .failure:
-                                imageErrorPlaceholder
-                            case .empty:
-                                ProgressView()
-                                    .frame(height: 200)
-                            @unknown default:
-                                EmptyView()
-                            }
-                        }
-                    }
-
-                    HStack {
-                        Label("\(asset.creditCost) credits", systemImage: "creditcard")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Label(asset.provider, systemImage: "cpu")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    ThemeButton("Generate Another", tier: .quiet) {
-                        store.send(.reset)
-                    }
-                }
-                .padding(ThemeSpacing.md)
-            }
-            .padding(.top, 20)
+            MasonryResultGrid(
+                asset: asset,
+                mediaType: .image,
+                onReset: { store.send(.reset) }
+            )
 
         case .error(let message):
             VStack(spacing: 12) {
@@ -211,21 +222,5 @@ public struct ImageGenerateView: View {
             }
             .padding(.top, 20)
         }
-    }
-
-    private var imageErrorPlaceholder: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(.quaternary)
-            .frame(height: 200)
-            .overlay {
-                VStack {
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                    Text("Failed to load image")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
     }
 }
