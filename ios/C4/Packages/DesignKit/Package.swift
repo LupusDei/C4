@@ -13,5 +13,10 @@ let package = Package(
             name: "DesignKit",
             path: "Sources/DesignKit"
         ),
+        .testTarget(
+            name: "DesignKitTests",
+            dependencies: ["DesignKit"],
+            path: "Tests/DesignKitTests"
+        ),
     ]
 )
