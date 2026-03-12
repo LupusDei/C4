@@ -13,6 +13,7 @@ let package = Package(
         .library(name: "AssemblyFeature", targets: ["AssemblyFeature"]),
         .library(name: "CreditFeature", targets: ["CreditFeature"]),
         .library(name: "StoryboardFeature", targets: ["StoryboardFeature"]),
+        .library(name: "DesignKit", targets: ["DesignKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.17.0"),
@@ -111,6 +112,15 @@ let package = Package(
             name: "CreditFeatureTests",
             dependencies: ["CreditFeature"],
             path: "Packages/CreditFeature/Tests/CreditFeatureTests"
+        ),
+        .target(
+            name: "DesignKit",
+            path: "Packages/DesignKit/Sources/DesignKit"
+        ),
+        .testTarget(
+            name: "DesignKitTests",
+            dependencies: ["DesignKit"],
+            path: "Packages/DesignKit/Tests/DesignKitTests"
         ),
     ]
 )
