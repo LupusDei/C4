@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import CoreKit
+import DesignKit
 import SwiftUI
 
 public struct StoryboardTimelineView: View {
@@ -11,6 +12,13 @@ public struct StoryboardTimelineView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
+            // Breadcrumb: Projects › … › Storyboard › [Title]
+            BreadcrumbView(crumbs: [
+                Breadcrumb("Projects"),
+                Breadcrumb("Storyboard"),
+                Breadcrumb(store.storyboard.title),
+            ])
+
             if store.isLoading {
                 Spacer()
                 ProgressView("Loading scenes...")

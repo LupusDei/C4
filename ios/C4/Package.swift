@@ -53,6 +53,7 @@ let package = Package(
             name: "ProjectFeature",
             dependencies: [
                 "CoreKit",
+                "DesignKit",
                 "GenerateFeature",
                 "PromptFeature",
                 "StoryboardFeature",
@@ -96,6 +97,7 @@ let package = Package(
             name: "StoryboardFeature",
             dependencies: [
                 "CoreKit",
+                "DesignKit",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
             ],
             path: "Packages/StoryboardFeature/Sources/StoryboardFeature"
