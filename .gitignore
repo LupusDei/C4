@@ -144,3 +144,9 @@ storage/
 # Swift Package Manager
 .build/
 .swiftpm/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
+
+.claude/

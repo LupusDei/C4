@@ -1,4 +1,4 @@
-# C4 — Content Creation Coordinator
+# C4 — Compelling Content Creation Coordinator
 
 AI-powered content creation platform with multi-provider image generation, video generation, video extension, video assembly, and an AI creative director. Node.js backend + iOS app.
 
